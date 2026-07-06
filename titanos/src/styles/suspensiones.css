@@ -1,0 +1,479 @@
+.sus-page {
+  position: relative;
+}
+
+.sus-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.sus-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 8px 18px rgba(0,0,0,.04);
+}
+
+.sus-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sus-card-top span {
+  color: var(--orange);
+  font-weight: 900;
+  font-size: 13px;
+}
+
+.sus-card-top strong {
+  background: rgba(241,90,36,.1);
+  color: var(--orange);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
+.sus-card h3 {
+  margin: 14px 0 6px;
+}
+
+.sus-small {
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.sus-card-total {
+  font-size: 24px;
+  font-weight: 900;
+  margin: 14px 0;
+}
+
+.sus-card button {
+  width: 100%;
+  border: none;
+  background: var(--brand-dark);
+  color: white;
+  border-radius: 12px;
+  padding: 10px;
+  font-weight: 900;
+}
+
+.sus-modal {
+  width: min(1040px, 100%);
+  background: white;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 30px 90px rgba(0,0,0,.45);
+}
+
+.sus-upload {
+  display: block;
+  margin-top: 12px;
+  border: 2px dashed var(--border);
+  border-radius: 16px;
+  padding: 18px;
+  text-align: center;
+  font-weight: 900;
+  background: #fafafa;
+  cursor: pointer;
+}
+
+.sus-upload input {
+  display: none;
+}
+
+.sus-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.sus-concept-form {
+  display: grid;
+  grid-template-columns: 1fr 100px 130px auto;
+  gap: 10px;
+}
+
+.sus-concept-form input {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+/* PDF */
+.sus-receipt {
+  width: 794px;
+  max-width: 794px;
+  background: white;
+  color: #111;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 22px;
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.sus-receipt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sus-logo-frame {
+  width: 150px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.sus-logo-frame img {
+  max-width: 150px;
+  max-height: 60px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.sus-receipt-header div:last-child {
+  text-align: right;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+.sus-receipt-header span {
+  display: block;
+  color: #6b7280;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.sus-receipt-header strong {
+  color: var(--orange);
+}
+
+.sus-accent-line {
+  height: 3px;
+  background: linear-gradient(90deg, var(--orange), transparent);
+  border-radius: 999px;
+  margin: 10px 0 14px;
+}
+
+.sus-block {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: white;
+  break-inside: avoid;
+}
+
+.sus-block h3 {
+  margin: 0 0 8px;
+  color: var(--orange);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.sus-data-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 14px;
+}
+
+.sus-data-grid p {
+  margin: 0;
+}
+
+.sus-full {
+  grid-column: 1 / -1;
+}
+
+.sus-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.sus-photo-grid div {
+  border: 1px solid #e5e7eb;
+  border-radius: 9px;
+  padding: 6px;
+  background: #fafafa;
+}
+
+.sus-photo-grid img {
+  width: 100%;
+  max-height: 135px;
+  object-fit: cover;
+  border-radius: 7px;
+}
+
+.sus-photo-grid span {
+  display: block;
+  text-align: center;
+  font-size: 9px;
+  color: #6b7280;
+}
+
+.sus-table {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.sus-table-head,
+.sus-table-row {
+  display: grid;
+  grid-template-columns: 1fr 60px 90px 90px;
+  gap: 8px;
+  padding: 7px 8px;
+}
+
+.sus-table-head {
+  background: #111;
+  color: white;
+  font-weight: 900;
+}
+
+.sus-table-row {
+  border-top: 1px solid #e5e7eb;
+}
+
+.sus-total {
+  margin-top: 8px;
+  background: #111;
+  color: white;
+  border-radius: 10px;
+  padding: 9px 10px;
+  display: flex;
+  justify-content: space-between;
+  font-weight: 900;
+}
+
+.sus-signature {
+  margin-top: 18px;
+}
+
+.sus-signature div {
+  border-top: 1px solid #111;
+  text-align: center;
+  padding-top: 6px;
+}
+
+.sus-signature img {
+  width: 170px;
+  max-height: 55px;
+  object-fit: contain;
+}
+
+/* Dark mode */
+body.dark-mode .sus-card,
+body.dark-mode .sus-modal,
+body.dark-mode .sus-upload {
+  background: #171a21 !important;
+  color: #f3f4f6 !important;
+  border-color: #2b2f3a !important;
+}
+
+body.dark-mode .sus-card *,
+body.dark-mode .sus-modal h2,
+body.dark-mode .sus-modal h3,
+body.dark-mode .sus-modal p,
+body.dark-mode .sus-modal label {
+  color: #f3f4f6;
+}
+
+body.dark-mode .sus-receipt,
+body.dark-mode .sus-receipt * {
+  color: #111 !important;
+}
+
+body.dark-mode .sus-receipt {
+  background: #f8fafc !important;
+}
+
+@media (max-width: 1100px) {
+  .sus-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .sus-concept-form {
+    grid-template-columns: 1fr 90px 110px;
+  }
+
+  .sus-concept-form button {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 700px) {
+  .sus-grid,
+  .sus-concept-form {
+    grid-template-columns: 1fr;
+  }
+
+  .sus-modal {
+    padding: 18px;
+  }
+
+  .sus-receipt {
+    width: 794px;
+    max-width: 794px;
+  }
+
+  .sus-actions {
+    flex-direction: column;
+  }
+
+  .sus-actions button {
+    width: 100%;
+  }
+}
+.sus-inline-concepts {
+  margin-top: 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.sus-inline-concept-row {
+  display: grid;
+  grid-template-columns: 1fr 70px 110px 120px 42px;
+  gap: 8px;
+  align-items: center;
+  background: #fafafa;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.sus-inline-concept-row button {
+  border: none;
+  background: #111;
+  color: white;
+  border-radius: 8px;
+  padding: 8px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+body.dark-mode .sus-inline-concept-row {
+  background: #11141a !important;
+  color: #f3f4f6 !important;
+  border-color: #374151 !important;
+}
+
+@media (max-width: 700px) {
+  .sus-inline-concept-row {
+    grid-template-columns: 1fr;
+  }
+}
+.sus-live-photo-section {
+  margin-top: 14px;
+}
+
+.sus-live-photo-section h4 {
+  margin: 0 0 8px;
+}
+
+.sus-live-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.sus-live-photo-card {
+  background: #fafafa;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 10px;
+}
+
+.sus-live-photo-card img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+}
+
+.sus-live-photo-card textarea {
+  width: 100%;
+  margin-top: 8px;
+  min-height: 70px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  font: inherit;
+}
+
+.sus-live-photo-card button {
+  margin-top: 8px;
+  border: none;
+  background: #111;
+  color: white;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.sus-photo-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.sus-photo-actions button {
+  flex: 1;
+}
+
+body.dark-mode .sus-live-photo-card {
+  background: #11141a !important;
+  color: #f3f4f6 !important;
+  border-color: #374151 !important;
+}
+
+body.dark-mode .sus-live-photo-card textarea {
+  background: #0f1115 !important;
+  color: #f3f4f6 !important;
+  border-color: #374151 !important;
+}
+
+@media (max-width: 700px) {
+  .sus-live-photo-grid {
+    grid-template-columns: 1fr;
+  }
+}
+button,
+.primary-button,
+.secondary-button,
+.cancel-service-button {
+  transition: transform 0.15s ease, filter 0.15s ease, opacity 0.15s ease,
+    background 0.15s ease;
+}
+
+button:hover,
+.primary-button:hover,
+.secondary-button:hover,
+.cancel-service-button:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+button:active,
+.primary-button:active,
+.secondary-button:active,
+.cancel-service-button:active {
+  transform: scale(0.98);
+  opacity: 0.85;
+}

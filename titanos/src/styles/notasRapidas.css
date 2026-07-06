@@ -1,0 +1,448 @@
+.nr-page {
+  position: relative;
+}
+
+.nr-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.nr-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.04);
+}
+
+.nr-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.nr-card-top span {
+  color: var(--orange);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.nr-status {
+  background: rgba(241, 90, 36, 0.1);
+  color: var(--orange);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.nr-status.cancelada {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.nr-status.cerrada,
+.nr-status.Pagado {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.nr-status.Parcial {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.nr-status.Pendiente {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.nr-card h3 {
+  margin: 0 0 8px;
+}
+
+.nr-small {
+  margin: 4px 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.nr-card-total {
+  margin: 16px 0;
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.nr-card-actions button {
+  width: 100%;
+  border: none;
+  background: #111;
+  color: white;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.nr-modal {
+  width: min(980px, 100%);
+  background: #ffffff !important;
+  color: #111111;
+  border-radius: 24px;
+  padding: 24px;
+  opacity: 1 !important;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
+}
+
+.nr-detail-modal {
+  width: min(980px, 100%);
+}
+
+.nr-concept-form {
+  display: grid;
+  grid-template-columns: 1fr 100px 130px auto;
+  gap: 10px;
+}
+
+.nr-concept-form input {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  font: inherit;
+}
+
+.nr-concept-list {
+  margin-top: 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.nr-concept-row {
+  display: grid;
+  grid-template-columns: 1fr 70px 110px 120px 42px;
+  gap: 8px;
+  align-items: center;
+  background: #fafafa;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.nr-concept-row button {
+  border: none;
+  background: #111;
+  color: white;
+  border-radius: 8px;
+  padding: 8px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.nr-total-box {
+  margin-top: 14px;
+  background: #111;
+  color: white;
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.nr-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  background: transparent !important;
+  position: static !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.nr-sign-button {
+  border: none;
+  background: var(--orange);
+  color: white;
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(241, 90, 36, 0.28);
+}
+
+/* RECIBO */
+
+.nr-receipt {
+  width: 794px;
+  max-width: 794px;
+  background: white;
+  color: #111;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 22px;
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.nr-receipt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.nr-receipt-header img {
+  width: 130px !important;
+  max-width: 130px !important;
+  max-height: 52px !important;
+  object-fit: contain !important;
+}
+
+.nr-receipt-header div {
+  text-align: right;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 8px 12px;
+  min-width: 215px;
+}
+
+.nr-receipt-header span {
+  display: block;
+  color: #6b7280;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.nr-receipt-header strong {
+  color: var(--orange);
+  font-size: 13px;
+}
+
+.nr-accent-line {
+  height: 3px;
+  background: linear-gradient(90deg, var(--orange), transparent);
+  border-radius: 999px;
+  margin: 10px 0 14px;
+}
+
+.nr-block {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: #fff;
+  break-inside: avoid;
+}
+
+.nr-block h3 {
+  margin: 0 0 8px;
+  color: var(--orange);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.nr-data-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 14px;
+}
+
+.nr-data-grid p {
+  margin: 0;
+}
+
+.nr-table {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.nr-table-head,
+.nr-table-row {
+  display: grid;
+  grid-template-columns: 1fr 60px 90px 90px;
+  gap: 8px;
+  padding: 7px 8px;
+  align-items: center;
+}
+
+.nr-table-head {
+  background: #111;
+  color: white;
+  font-weight: 900;
+}
+
+.nr-table-row {
+  border-top: 1px solid #e5e7eb;
+}
+
+.nr-total {
+  margin-top: 8px;
+  background: #111;
+  color: white;
+  border-radius: 10px;
+  padding: 9px 10px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.nr-payment-summary {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.nr-payment-summary p {
+  margin: 0;
+}
+
+.nr-signature {
+  display: grid;
+  grid-template-columns: 1fr;
+  margin-top: 18px;
+  break-inside: avoid;
+}
+
+.nr-signature div {
+  min-height: 68px;
+  border-top: 1px solid #111;
+  padding-top: 6px;
+  text-align: center;
+  background: #fff;
+}
+
+.nr-signature img {
+  width: 170px;
+  max-height: 55px;
+  object-fit: contain;
+}
+
+.nr-signature strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1100px) {
+  .nr-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .nr-concept-form {
+    grid-template-columns: 1fr 90px 110px;
+  }
+
+  .nr-concept-form button {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 700px) {
+  .nr-grid,
+  .nr-concept-form {
+    grid-template-columns: 1fr;
+  }
+
+  .nr-concept-row {
+    grid-template-columns: 1fr;
+  }
+
+  .nr-actions {
+    flex-direction: column;
+  }
+
+  .nr-modal {
+    padding: 18px;
+  }
+
+  .nr-receipt {
+    width: 794px;
+    max-width: 794px;
+  }
+
+  .nr-actions button,
+  .nr-sign-button {
+    width: 100%;
+  }
+}
+.nr-paid-button {
+  width: 100%;
+  margin-top: 10px;
+  border: none;
+  background: var(--orange);
+  color: white;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(241, 90, 36, 0.22);
+}
+
+.nr-actions .nr-paid-button {
+  width: auto;
+  margin-top: 0;
+}
+
+@media (max-width: 700px) {
+  .nr-actions .nr-paid-button {
+    width: 100%;
+  }
+}
+/* Estado de nota en modo oscuro */
+
+body.dark-mode .nr-status,
+body.dark-mode .nr-status.Pagado,
+body.dark-mode .nr-status.Parcial,
+body.dark-mode .nr-status.Pendiente,
+body.dark-mode .nr-status.cerrada,
+body.dark-mode .nr-status.cancelada {
+  color: #ffffff !important;
+}
+
+body.dark-mode .nr-status.Pagado,
+body.dark-mode .nr-status.cerrada {
+  background: #047857 !important;
+}
+
+body.dark-mode .nr-status.Parcial {
+  background: #c2410c !important;
+}
+
+body.dark-mode .nr-status.Pendiente {
+  background: #1d4ed8 !important;
+}
+
+body.dark-mode .nr-status.cancelada {
+  background: #b91c1c !important;
+}
+
+/* Logo de nota: evita que se aplaste en PDF */
+
+.nr-logo-frame {
+  width: 130px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+.nr-logo-frame img {
+  max-width: 130px !important;
+  max-height: 52px !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+}

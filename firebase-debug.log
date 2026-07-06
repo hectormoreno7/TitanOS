@@ -1,0 +1,53 @@
+[debug] [2026-06-24T19:51:02.609Z] ----------------------------------------------------------------------
+[debug] [2026-06-24T19:51:02.611Z] Command:       C:\nvm4w\nodejs\node.exe C:\nvm4w\nodejs\node_modules\firebase-tools\lib\bin\firebase.js init hosting
+[debug] [2026-06-24T19:51:02.612Z] CLI Version:   15.22.1
+[debug] [2026-06-24T19:51:02.612Z] Platform:      win32
+[debug] [2026-06-24T19:51:02.612Z] Node Version:  v22.17.0
+[debug] [2026-06-24T19:51:02.613Z] Detected Agent: unknown
+[debug] [2026-06-24T19:51:02.613Z] Time:          Wed Jun 24 2026 13:51:02 GMT-0600 (hora estándar central)
+[debug] [2026-06-24T19:51:02.613Z] ----------------------------------------------------------------------
+[debug] 
+[info] 
+     ######## #### ########  ######## ########     ###     ######  ########
+     ##        ##  ##     ## ##       ##     ##  ##   ##  ##       ##
+     ######    ##  ########  ######   ########  #########  ######  ######
+     ##        ##  ##    ##  ##       ##     ## ##     ##       ## ##
+     ##       #### ##     ## ######## ########  ##     ##  ######  ########
+
+You're about to initialize a Firebase project in this directory:
+
+  C:\Users\hecto\Desktop\TitanOS
+
+[info] 
+=== Project Setup
+[info] 
+[info] First, let's associate this project directory with a Firebase project.
+[info] You can create multiple project aliases by running firebase use --add, 
+[info] 
+[debug] [2026-06-24T19:51:36.610Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-06-24T19:51:36.610Z] > authorizing via signed-in user (orbital.vsat2001@gmail.com)
+[debug] [2026-06-24T19:51:36.611Z] Checked if tokens are valid: true, expires at: 1782334107105
+[debug] [2026-06-24T19:51:36.611Z] Checked if tokens are valid: true, expires at: 1782334107105
+[debug] [2026-06-24T19:51:36.613Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects pageSize=100
+[debug] [2026-06-24T19:51:37.049Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects 200
+[debug] [2026-06-24T19:51:37.049Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects [omitted]
+[info] 
+=== Hosting Setup
+[debug] [2026-06-24T19:51:40.829Z] Checked if tokens are valid: true, expires at: 1782334107105
+[debug] [2026-06-24T19:51:40.829Z] Checked if tokens are valid: true, expires at: 1782334107105
+[debug] [2026-06-24T19:51:40.829Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/titanos-app [none]
+[debug] [2026-06-24T19:51:40.983Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/titanos-app 200
+[debug] [2026-06-24T19:51:40.984Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/titanos-app {"projectId":"titanos-app","projectNumber":"33649990802","displayName":"titanos-app","name":"projects/titanos-app","resources":{"hostingSite":"titanos-app"},"state":"ACTIVE","etag":"1_d3587714-d515-4a2f-8759-8bcf0a8a2f59"}
+[info] 
+[info] Your public directory is the folder (relative to your project directory) that
+[info] will contain Hosting assets to be uploaded with firebase deploy. If you
+[info] have a build process for your assets, use your build's output directory.
+[info] 
+[info] 
+[info] i  Didn't detect a .git folder. Assuming C:\Users\hecto\Desktop\TitanOS is the project root. 
+[info] i  Authorizing with GitHub to upload your service account to a GitHub repository's secrets store. 
+[info] 
+[info] Visit this URL on this device to log in:
+[info] https://github.com/login/oauth/authorize?client_id=89cf50f02ac6aaed3484&state=590934011&redirect_uri=http%3A%2F%2Flocalhost%3A9005&scope=read%3Auser%20repo%20public_repo
+[info] 
+[info] Waiting for authentication...

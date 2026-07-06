@@ -1,0 +1,782 @@
+:root {
+  --orange: #f15a24;
+  --dark: #111111;
+  --dark-soft: #111111;
+  --text: #1f2933;
+  --muted: #6b7280;
+  --bg: #f4f5f7;
+  --card: #ffffff;
+  --border: #e5e7eb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 280px;
+  min-height: 100vh;
+  background: var(--dark);
+  color: white;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.brand {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 34px;
+}
+
+.brand-logo-full {
+  width: 275px;
+  max-height: 100px;
+  object-fit: contain;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sidebar-nav a {
+  color: #d1d5db;
+  text-decoration: none;
+  padding: 13px 14px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.sidebar-nav a:hover,
+.sidebar-nav a.active {
+  background: var(--orange);
+  color: white;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  display: flex;
+  justify-content: center;
+  padding-top: 28px;
+}
+
+.sidebar-icon {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  opacity: 0.85;
+}
+
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  background: white;
+  padding: 22px 32px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.topbar p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.topbar-badge {
+  background: #111111;
+  color: var(--orange);
+  border: 2px solid var(--orange);
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-weight: 900;
+}
+
+.page-content {
+  padding: 32px;
+}
+.mobile-header {
+  display: none;
+}
+
+.menu-button {
+  border: none;
+  background: var(--orange);
+  color: white;
+  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    display: block;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -290px;
+    height: 100vh;
+    z-index: 1000;
+    transition: left 0.25s ease;
+  }
+
+  .sidebar.sidebar-open {
+    left: 0;
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 900;
+  }
+
+  .main-area {
+    min-height: 100vh;
+  }
+
+  .mobile-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    height: 64px;
+    padding: 0 18px;
+    background: white;
+    border-bottom: 1px solid var(--border);
+    font-weight: 800;
+  }
+
+  .page-content {
+    padding: 18px;
+  }
+
+  .dashboard-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .dashboard-business-logo {
+    width: 130px;
+  }
+}
+.floating-action {
+  position: fixed !important;
+  right: 28px !important;
+  bottom: 28px !important;
+  z-index: 3000 !important;
+
+  width: 62px !important;
+  height: 62px !important;
+  min-width: 62px !important;
+  min-height: 62px !important;
+
+  border: none !important;
+  border-radius: 50% !important;
+
+  background: var(--orange) !important;
+  color: white !important;
+
+  font-size: 36px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  box-shadow: 0 14px 30px rgba(241, 90, 36, 0.38) !important;
+  cursor: pointer !important;
+}
+
+.floating-action:hover {
+  transform: translateY(-2px);
+}
+
+@media (max-width: 700px) {
+  .floating-action {
+    right: 18px !important;
+    bottom: 18px !important;
+
+    width: 58px !important;
+    height: 58px !important;
+    min-width: 58px !important;
+    min-height: 58px !important;
+
+    font-size: 34px !important;
+  }
+}
+/* MODALES GLOBALES - CORRECCIÓN DE TRANSPARENCIA */
+
+.modal-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+
+  padding: 24px !important;
+  overflow-y: auto !important;
+
+  background: rgba(0, 0, 0, 0.72) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+
+  opacity: 1 !important;
+  isolation: isolate !important;
+}
+
+.service-modal,
+.client-modal,
+.logistica-modal,
+.signature-modal,
+.image-editor-modal {
+  position: relative !important;
+  z-index: 10000 !important;
+
+  background: #ffffff !important;
+  color: #111111 !important;
+
+  opacity: 1 !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+
+  border: 1px solid #e5e7eb !important;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45) !important;
+}
+
+.logistica-modal::before,
+.service-modal::before,
+.client-modal::before,
+.signature-modal::before,
+.image-editor-modal::before {
+  display: none !important;
+  content: none !important;
+}
+
+.modal-backdrop * {
+  opacity: 1;
+}
+
+@media (max-width: 700px) {
+  .modal-backdrop {
+    padding: 12px !important;
+  }
+
+  .service-modal,
+  .client-modal,
+  .logistica-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+body.dark-mode {
+  background: #0f1115;
+  color: #f3f4f6;
+}
+
+body.dark-mode .app-shell,
+body.dark-mode .main-content {
+  background: #0f1115;
+}
+
+body.dark-mode .dashboard-card,
+body.dark-mode .dashboard-hero,
+body.dark-mode .dashboard-panel,
+body.dark-mode .form-section,
+body.dark-mode .service-card,
+body.dark-mode .client-card,
+body.dark-mode .er2-card,
+body.dark-mode .nr-card,
+body.dark-mode .config-preview,
+body.dark-mode .monthly-card {
+  background: #171a21 !important;
+  color: #f3f4f6 !important;
+  border-color: #2b2f3a !important;
+}
+
+body.dark-mode input,
+body.dark-mode textarea,
+body.dark-mode select {
+  background: #11141a !important;
+  color: #f3f4f6 !important;
+  border-color: #2b2f3a !important;
+}
+
+body.dark-mode p,
+body.dark-mode span,
+body.dark-mode label {
+  color: #d1d5db;
+}
+
+body.dark-mode .modal-backdrop {
+  background: rgba(0, 0, 0, 0.78) !important;
+}
+
+body.dark-mode .service-modal,
+body.dark-mode .client-modal,
+body.dark-mode .er2-modal,
+body.dark-mode .nr-modal,
+body.dark-mode .config-page .form-section {
+  background: #171a21 !important;
+  color: #f3f4f6 !important;
+}
+
+body.dark-mode .er2-receipt,
+body.dark-mode .nr-receipt {
+  background: white !important;
+  color: #111 !important;
+}
+.sidebar {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-nav {
+  flex: 1;
+}
+
+.sidebar-bottom {
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.sidebar-config-button {
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  background: rgba(241, 90, 36, 0.12);
+  color: var(--orange);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  text-decoration: none;
+  font-weight: 900;
+}
+
+.sidebar-config-button.active {
+  background: var(--orange);
+  color: white;
+}
+/* DARK MODE REFORZADO */
+
+body.dark-mode {
+  background: #0f1115 !important;
+  color: #f3f4f6 !important;
+}
+
+body.dark-mode .main-content,
+body.dark-mode .app-shell,
+body.dark-mode .content-area {
+  background: #0f1115 !important;
+  color: #f3f4f6 !important;
+}
+
+body.dark-mode h1,
+body.dark-mode h2,
+body.dark-mode h3,
+body.dark-mode h4,
+body.dark-mode strong,
+body.dark-mode b,
+body.dark-mode p,
+body.dark-mode span,
+body.dark-mode label {
+  color: #f3f4f6 !important;
+}
+
+body.dark-mode .form-section,
+body.dark-mode .dashboard-card,
+body.dark-mode .dashboard-hero,
+body.dark-mode .dashboard-panel,
+body.dark-mode .monthly-card,
+body.dark-mode .service-card,
+body.dark-mode .client-card,
+body.dark-mode .bike-card,
+body.dark-mode .history-card,
+body.dark-mode .er2-card,
+body.dark-mode .nr-card,
+body.dark-mode .config-preview,
+body.dark-mode .config-preview-card {
+  background: #171a21 !important;
+  color: #f3f4f6 !important;
+  border-color: #2b2f3a !important;
+}
+
+body.dark-mode .service-modal,
+body.dark-mode .client-modal,
+body.dark-mode .er2-modal,
+body.dark-mode .nr-modal,
+body.dark-mode .config-page .form-section,
+body.dark-mode .modal-content,
+body.dark-mode .detail-modal {
+  background: #171a21 !important;
+  color: #f3f4f6 !important;
+  border-color: #2b2f3a !important;
+}
+
+body.dark-mode input,
+body.dark-mode textarea,
+body.dark-mode select {
+  background: #0f1115 !important;
+  color: #f3f4f6 !important;
+  border-color: #374151 !important;
+}
+
+body.dark-mode input::placeholder,
+body.dark-mode textarea::placeholder {
+  color: #9ca3af !important;
+}
+
+body.dark-mode option {
+  background: #171a21 !important;
+  color: #f3f4f6 !important;
+}
+
+body.dark-mode .search-box input {
+  background: #171a21 !important;
+  color: #f3f4f6 !important;
+  border-color: #2b2f3a !important;
+}
+
+body.dark-mode .empty-state,
+body.dark-mode .form-note {
+  background: #171a21 !important;
+  color: #d1d5db !important;
+  border-color: #2b2f3a !important;
+}
+
+body.dark-mode .nr-concept-row,
+body.dark-mode .concept-row,
+body.dark-mode .er2-photo-input,
+body.dark-mode .config-logo-box,
+body.dark-mode .logistica-photo-card {
+  background: #11141a !important;
+  color: #f3f4f6 !important;
+  border-color: #374151 !important;
+}
+
+body.dark-mode .nr-card-total,
+body.dark-mode .dashboard-card strong,
+body.dark-mode .service-total strong {
+  color: #f3f4f6 !important;
+}
+
+body.dark-mode .money-card strong {
+  color: var(--orange) !important;
+}
+
+body.dark-mode .pending-card strong {
+  color: #f87171 !important;
+}
+
+/* PDFs / recibos SIEMPRE blancos */
+body.dark-mode .preview-document,
+body.dark-mode .er2-receipt,
+body.dark-mode .nr-receipt,
+body.dark-mode .receipt-section,
+body.dark-mode .er2-block,
+body.dark-mode .nr-block,
+body.dark-mode .nr-table,
+body.dark-mode .nr-table-row,
+body.dark-mode .nr-signature div,
+body.dark-mode .er2-signature div {
+  background: #ffffff !important;
+  color: #111111 !important;
+  border-color: #e5e7eb !important;
+}
+
+body.dark-mode .preview-document *,
+body.dark-mode .er2-receipt *,
+body.dark-mode .nr-receipt * {
+  color: #111111 !important;
+}
+
+body.dark-mode .nr-table-head,
+body.dark-mode .nr-total {
+  background: #111111 !important;
+  color: #ffffff !important;
+}
+
+body.dark-mode .nr-table-head *,
+body.dark-mode .nr-total * {
+  color: #ffffff !important;
+}
+/* DARK MODE - AJUSTES FINALES */
+
+body.dark-mode .module-header,
+body.dark-mode .modal-header,
+body.dark-mode .section-title-row {
+  background: #171a21 !important;
+  color: #f3f4f6 !important;
+  border-color: #2b2f3a !important;
+}
+
+body.dark-mode .module-header h2,
+body.dark-mode .module-header p,
+body.dark-mode .modal-header h2,
+body.dark-mode .modal-header p,
+body.dark-mode .section-title-row h3 {
+  color: #f3f4f6 !important;
+}
+
+body.dark-mode .modal-header p,
+body.dark-mode .module-header p {
+  color: #d1d5db !important;
+}
+
+/* Barras de acciones dentro de servicios, PDFs, firmas, notas, recolección */
+body.dark-mode .detail-actions-row,
+body.dark-mode .modal-actions,
+body.dark-mode .nr-actions,
+body.dark-mode .er2-actions,
+body.dark-mode .service-total,
+body.dark-mode .concept-form,
+body.dark-mode .concept-list,
+body.dark-mode .receipt-actions,
+body.dark-mode .preview-actions {
+  background: #171a21 !important;
+  color: #f3f4f6 !important;
+  border-color: #2b2f3a !important;
+  box-shadow: none !important;
+}
+
+/* Botones secundarios que se ven grises/blancos */
+body.dark-mode .secondary-button {
+  background: #11141a !important;
+  color: #f3f4f6 !important;
+  border: 1px solid #374151 !important;
+}
+
+/* Inputs/conceptos dentro de esas barras */
+body.dark-mode .concept-form input,
+body.dark-mode .concept-form select,
+body.dark-mode .concept-form textarea {
+  background: #0f1115 !important;
+  color: #f3f4f6 !important;
+  border-color: #374151 !important;
+}
+
+/* Mantener el documento PDF blanco */
+body.dark-mode .preview-document,
+body.dark-mode .preview-document *,
+body.dark-mode .er2-receipt,
+body.dark-mode .er2-receipt *,
+body.dark-mode .nr-receipt,
+body.dark-mode .nr-receipt * {
+  background-color: inherit;
+}
+
+body.dark-mode .preview-document,
+body.dark-mode .er2-receipt,
+body.dark-mode .nr-receipt {
+  background: #ffffff !important;
+  color: #111111 !important;
+}
+/* DARK MODE - globos/checks/cajas pendientes */
+
+body.dark-mode .check-item,
+body.dark-mode .client-stats span,
+body.dark-mode .bike-history-mini,
+body.dark-mode .detail-text,
+body.dark-mode .service-bike,
+body.dark-mode .service-type,
+body.dark-mode .full-label,
+body.dark-mode .photo-upload-inline {
+  background: #11141a !important;
+  color: #f3f4f6 !important;
+  border-color: #374151 !important;
+}
+
+body.dark-mode .check-item input {
+  accent-color: var(--orange);
+}
+
+body.dark-mode .detail-text,
+body.dark-mode .estado-mecanico-box,
+body.dark-mode .mechanical-state,
+body.dark-mode .inspection-box {
+  background: #11141a !important;
+  color: #f3f4f6 !important;
+  border: 1px solid #374151 !important;
+}
+
+body.dark-mode .client-stats span {
+  color: #f3f4f6 !important;
+}
+/* CAPAS DE MODALES */
+
+.modal-backdrop {
+  z-index: 9999 !important;
+}
+
+.client-modal.detail-modal {
+  z-index: 10000 !important;
+}
+
+.client-modal.detail-modal .modal-backdrop {
+  z-index: 11000 !important;
+}
+
+.client-modal.detail-modal .service-modal,
+.client-modal.detail-modal .detail-modal {
+  z-index: 11001 !important;
+}
+:root {
+  --brand-dark: #111111;
+}
+
+.primary-dark,
+.sidebar,
+.nr-table-head,
+.nr-total,
+.service-total,
+.er2-card-actions button,
+.nr-card-actions button,
+.logistica-actions button {
+  background: var(--brand-dark) !important;
+}
+
+.secondary-button {
+  border-color: var(--brand-dark);
+}
+
+body.dark-mode .sidebar {
+  background: var(--brand-dark) !important;
+}
+/* Texto de documentos/previsualizaciones siempre legible */
+
+body.dark-mode .preview-document,
+body.dark-mode .preview-document *,
+body.dark-mode .preview-doc,
+body.dark-mode .preview-doc *,
+body.dark-mode .preview-page,
+body.dark-mode .preview-page *,
+body.dark-mode .service-preview,
+body.dark-mode .service-preview *,
+body.dark-mode .er2-receipt,
+body.dark-mode .er2-receipt *,
+body.dark-mode .nr-receipt,
+body.dark-mode .nr-receipt * {
+  color: #111111 !important;
+}
+
+/* Previsualización visible pero menos agresiva en modo oscuro */
+body.dark-mode .preview-document,
+body.dark-mode .preview-doc,
+body.dark-mode .preview-page,
+body.dark-mode .service-preview,
+body.dark-mode .er2-receipt,
+body.dark-mode .nr-receipt {
+  background: #f8fafc !important;
+  box-shadow: 0 0 0 1px #2b2f3a, 0 18px 50px rgba(0, 0, 0, 0.55) !important;
+}
+
+/* Al generar PDF debe conservar apariencia de hoja blanca */
+.pdf-export,
+.pdf-export *,
+.exporting-pdf,
+.exporting-pdf * {
+  color: #111111 !important;
+}
+
+.pdf-export,
+.exporting-pdf {
+  background: #ffffff !important;
+}
+.sidebar-contact-link,
+.sidebar-settings-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.sidebar-contact-link:hover,
+.sidebar-settings-link:hover {
+  background: rgba(255,255,255,.08);
+}
+
+.sidebar-settings-link {
+  margin-top: 12px;
+  border-top: 1px solid rgba(255,255,255,.1);
+  padding-top: 14px;
+}
+
+.sidebar-bottom {
+  margin-top: auto;
+  padding: 12px;
+}
+.sidebar-bottom {
+  margin-top: auto;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.sidebar-bottom-link {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.72);
+  text-decoration: none;
+}
+
+.sidebar-bottom-link:hover,
+.sidebar-bottom-link.active {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+}
+.sidebar-logout {
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}

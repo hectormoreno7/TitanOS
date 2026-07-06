@@ -1,0 +1,399 @@
+.er2-page {
+  position: relative;
+}
+
+.er2-title {
+  margin: 20px 0 12px;
+  font-size: 18px;
+}
+
+.er2-empty {
+  margin-bottom: 12px;
+}
+
+.er2-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.er2-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.04);
+}
+
+.er2-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.er2-card-top span {
+  color: var(--orange);
+  font-weight: 900;
+  font-size: 13px;
+}
+
+.er2-card-top strong {
+  background: rgba(241, 90, 36, 0.1);
+  color: var(--orange);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.er2-card h3 {
+  margin: 0 0 8px;
+}
+
+.er2-card p {
+  margin: 5px 0;
+}
+
+.er2-small {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.er2-card-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.er2-card-actions button,
+.er2-card-actions a {
+  flex: 1;
+  border: none;
+  background: #111;
+  color: white;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 900;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+}
+
+.er2-card-actions a {
+  background: var(--orange);
+}
+
+.er2-modal {
+  width: min(980px, 100%);
+  background: #ffffff !important;
+  color: #111111;
+  border-radius: 24px;
+  padding: 24px;
+  opacity: 1 !important;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
+}
+
+.er2-detail-modal {
+  width: min(980px, 100%);
+}
+
+.er2-choice {
+  display: grid;
+  gap: 10px;
+}
+
+.er2-choice.two {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.er2-choice.three {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.er2-choice button {
+  border: 2px solid #e5e7eb;
+  background: #ffffff;
+  color: #111111;
+  border-radius: 16px;
+  padding: 14px 16px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.er2-choice button.active {
+  background: var(--orange);
+  color: white;
+  border-color: var(--orange);
+  box-shadow: 0 12px 28px rgba(241, 90, 36, 0.28);
+}
+
+.er2-choice button.active::after {
+  content: " ✓";
+}
+
+.er2-photo-input-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.er2-photo-input {
+  min-height: 170px;
+  border: 2px dashed #d1d5db;
+  border-radius: 18px;
+  background: #fafafa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.er2-photo-input span {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.er2-photo-input img {
+  width: 100%;
+  height: 190px;
+  object-fit: cover;
+  display: block;
+}
+
+.er2-photo-input input {
+  display: none;
+}
+
+.er2-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  background: transparent !important;
+  position: static !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.er2-sign-button {
+  border: none;
+  background: var(--orange);
+  color: white;
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(241, 90, 36, 0.28);
+}
+
+/* RECIBO */
+
+.er2-receipt {
+  width: 794px;
+  max-width: 794px;
+  background: white;
+  color: #111;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 22px;
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.er2-receipt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.er2-receipt-header img {
+  width: 130px !important;
+  max-width: 130px !important;
+  max-height: 52px !important;
+  object-fit: contain !important;
+}
+
+.er2-receipt-header div {
+  text-align: right;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 8px 12px;
+  min-width: 215px;
+}
+
+.er2-receipt-header span {
+  display: block;
+  color: #6b7280;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.er2-receipt-header strong {
+  color: var(--orange);
+  font-size: 13px;
+}
+
+.er2-accent-line {
+  height: 3px;
+  background: linear-gradient(90deg, var(--orange), transparent);
+  border-radius: 999px;
+  margin: 10px 0 14px;
+}
+
+.er2-block {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: #fff;
+  break-inside: avoid;
+}
+
+.er2-block h3 {
+  margin: 0 0 8px;
+  color: var(--orange);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.er2-block p {
+  margin: 2px 0;
+}
+
+.er2-data-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 14px;
+}
+
+.er2-full {
+  grid-column: 1 / -1;
+}
+
+.er2-photo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.er2-photo-grid div {
+  border: 1px solid #e5e7eb;
+  border-radius: 9px;
+  padding: 6px;
+  background: #fafafa;
+}
+
+.er2-photo-grid img {
+  width: 100%;
+  max-height: 125px !important;
+  object-fit: cover;
+  display: block;
+  border-radius: 7px;
+}
+
+.er2-photo-grid span {
+  display: block;
+  margin-top: 4px;
+  color: #6b7280;
+  font-size: 9px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.er2-legal {
+  margin: 0;
+  padding-left: 18px;
+  text-align: justify;
+}
+
+.er2-legal li {
+  margin-bottom: 5px;
+}
+
+.er2-signature {
+  display: grid;
+  grid-template-columns: 1fr;
+  margin-top: 18px;
+  break-inside: avoid;
+}
+
+.er2-signature div {
+  min-height: 68px;
+  border-top: 1px solid #111;
+  padding-top: 6px;
+  text-align: center;
+  background: #fff;
+}
+
+.er2-signature img {
+  width: 170px;
+  max-height: 55px;
+  object-fit: contain;
+}
+
+.er2-signature strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1100px) {
+  .er2-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .er2-grid,
+  .er2-choice.two,
+  .er2-choice.three,
+  .er2-photo-input-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .er2-card-actions,
+  .er2-actions {
+    flex-direction: column;
+  }
+
+  .er2-modal {
+    padding: 18px;
+  }
+
+  .er2-receipt {
+    width: 794px;
+    max-width: 794px;
+  }
+
+  .er2-sign-button,
+  .er2-actions button {
+    width: 100%;
+  }
+}
+.er2-status.recolectada,
+.er2-status.entregada,
+.er2-status.recolectada\/\ entregada {
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+}
+
+.er2-status.cancelada {
+  background: #fef2f2 !important;
+  color: #b91c1c !important;
+}
+
+.er2-status.recibo {
+  background: #fff7ed !important;
+  color: #c2410c !important;
+}
+.er2-create-service-button {
+  width: 100%;
+  margin-top: 10px;
+}
