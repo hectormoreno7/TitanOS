@@ -8,6 +8,7 @@ export default defineConfig({
 
     VitePWA({
       registerType: "autoUpdate",
+      injectRegister: "auto",
 
       includeAssets: [
         "favicon.ico",
@@ -26,7 +27,7 @@ export default defineConfig({
         display: "standalone",
         orientation: "portrait",
         scope: "/",
-        start_url: "/?source=pwa",
+        start_url: "/",
         icons: [
           {
             src: "/icon-192.png",
@@ -50,7 +51,10 @@ export default defineConfig({
       },
 
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png}"],
+        globPatterns: ["**/*.{js,css,html,ico,png,webp}"],
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
       },
     }),
   ],

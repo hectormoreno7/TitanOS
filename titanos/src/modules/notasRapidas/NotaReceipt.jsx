@@ -1,19 +1,24 @@
 import tbwLogo from "../../assets/logos/tbw-logo.png";
 import { getWorkshopConfig } from "../../utils/workshopConfig";
 
-function NotaReceipt({ nota, receiptRef }) {
-  const config = getWorkshopConfig();
-
-  const total = (nota.conceptos || []).reduce((acc, item) => {
+function totalNota(nota) {
+  return (nota.conceptos || []).reduce((acc, item) => {
     return acc + Number(item.cantidad || 0) * Number(item.precio || 0);
   }, 0);
+}
+
+function NotaReceipt({ nota, receiptRef }) {
+  const config = getWorkshopConfig();
+  const total = totalNota(nota);
+  const abono = Number(nota.abono || 0);
+  const saldo = Math.max(total - abono, 0);
 
   return (
     <section className="nr-receipt" ref={receiptRef}>
       <header className="nr-receipt-header">
         <div className="nr-logo-frame">
-  <img src={config.logo || tbwLogo} alt={config.nombre} />
-</div>
+          <img src={config.logo || tbwLogo} alt={config.nombre} />
+        </div>
 
         <div>
           <span>NOTA RÁPIDA</span>
@@ -27,12 +32,27 @@ function NotaReceipt({ nota, receiptRef }) {
         <h3>Datos generales</h3>
 
         <div className="nr-data-grid">
-          <p><b>Fecha:</b> {nota.fechaCreacion}</p>
-          <p><b>Hora:</b> {nota.horaCreacion}</p>
-          <p><b>Cliente:</b> {nota.cliente || "Cliente general"}</p>
-          <p><b>Teléfono:</b> {nota.telefono || "Sin registro"}</p>
-          <p><b>Estado de pago:</b> {nota.estadoPago}</p>
-          <p><b>Método:</b> {nota.metodoPago}</p>
+          <p>
+            <b>Fecha:</b> {nota.fechaCreacion || "Sin registro"}
+          </p>
+          <p>
+            <b>Hora:</b> {nota.horaCreacion || "Sin registro"}
+          </p>
+          <p>
+            <b>Cliente:</b> {nota.cliente || "Cliente general"}
+          </p>
+          <p>
+            <b>Teléfono:</b> {nota.telefono || "Sin registro"}
+          </p>
+          <p>
+            <b>Estado:</b> {nota.estado || "abierta"}
+          </p>
+          <p>
+            <b>Estado de pago:</b> {nota.estadoPago || "Pendiente"}
+          </p>
+          <p>
+            <b>Método:</b> {nota.metodoPago || "Sin registro"}
+          </p>
         </div>
       </section>
 
@@ -47,13 +67,25 @@ function NotaReceipt({ nota, receiptRef }) {
             <span>Importe</span>
           </div>
 
+          {(nota.conceptos || []).length === 0 && (
+            <div className="nr-table-row">
+              <span>Sin conceptos registrados</span>
+              <span>-</span>
+              <span>-</span>
+              <strong>$0.00</strong>
+            </div>
+          )}
+
           {(nota.conceptos || []).map((item) => (
             <div className="nr-table-row" key={item.id}>
               <span>{item.descripcion}</span>
               <span>{item.cantidad}</span>
               <span>${Number(item.precio || 0).toFixed(2)}</span>
               <strong>
-                ${(Number(item.cantidad || 0) * Number(item.precio || 0)).toFixed(2)}
+                $
+                {(
+                  Number(item.cantidad || 0) * Number(item.precio || 0)
+                ).toFixed(2)}
               </strong>
             </div>
           ))}
@@ -64,10 +96,14 @@ function NotaReceipt({ nota, receiptRef }) {
           <strong>${total.toFixed(2)}</strong>
         </div>
 
-        {nota.estadoPago === "Parcial" && (
+        {(nota.estadoPago === "Parcial" || abono > 0) && (
           <div className="nr-payment-summary">
-            <p><b>Abono:</b> ${Number(nota.abono || 0).toFixed(2)}</p>
-            <p><b>Saldo:</b> ${(total - Number(nota.abono || 0)).toFixed(2)}</p>
+            <p>
+              <b>Abono:</b> ${abono.toFixed(2)}
+            </p>
+            <p>
+              <b>Saldo:</b> ${saldo.toFixed(2)}
+            </p>
           </div>
         )}
       </section>

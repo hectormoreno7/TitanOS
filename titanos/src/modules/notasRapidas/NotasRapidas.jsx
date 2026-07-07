@@ -13,24 +13,39 @@ import {
 const STORAGE_KEY = "titanos_notas_rapidas_v1";
 const COLLECTION = "notasRapidas";
 
-function cargarNotasLocales() {
+function guardarNotasLocales(notas) {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(notas));
   } catch {
-    return [];
+    console.warn("No se pudieron guardar notas en localStorage.");
   }
 }
 
-function guardarNotasLocales(notas) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(notas));
-}
-
-function generarFolio(consecutivo) {
+function generarFolio(notas) {
   const fecha = new Date();
   const mes = String(fecha.getMonth() + 1).padStart(2, "0");
   const año = String(fecha.getFullYear()).slice(-2);
+  const prefijo = `TBW-N-${mes}${año}-`;
 
-  return `TBW-N-${mes}${año}-${String(consecutivo).padStart(5, "0")}`;
+  const numeros = notas
+    .map((n) => String(n.folio || ""))
+    .filter((folio) => folio.startsWith(prefijo))
+    .map((folio) => Number(folio.replace(prefijo, "")))
+    .filter((num) => !Number.isNaN(num));
+
+  const siguiente = numeros.length > 0 ? Math.max(...numeros) + 1 : 1;
+  return `${prefijo}${String(siguiente).padStart(5, "0")}`;
+}
+
+function fechaActual() {
+  return new Date().toLocaleDateString("es-MX");
+}
+
+function horaActual() {
+  return new Date().toLocaleTimeString("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function totalNota(nota) {
@@ -39,18 +54,52 @@ function totalNota(nota) {
   }, 0);
 }
 
+function normalizar(valor) {
+  return String(valor || "").trim().toLowerCase();
+}
+
+function esNotaActiva(nota) {
+  const estado = normalizar(nota.estado || "abierta");
+
+  return ![
+    "cerrada",
+    "cerrado",
+    "finalizada",
+    "finalizado",
+    "cancelada",
+    "cancelado",
+    "historial",
+  ].includes(estado);
+}
+
 function estadoVisual(nota) {
-  if (nota.estado === "cancelada") return "Cancelada";
-  if (nota.estadoPago === "Pagado") return "Pagado";
-  if (nota.estadoPago === "Parcial") return "Pago parcial";
-  if (nota.estadoPago === "Pendiente") return "Falta de pago";
+  const estado = normalizar(nota.estado);
+  const estadoPago = normalizar(nota.estadoPago);
+
+  if (estado === "cancelada" || estado === "cancelado") return "Cancelada";
+  if (estado === "cerrada" || estado === "cerrado") return "Finalizada";
+  if (estadoPago === "pagado") return "Pagado";
+  if (estadoPago === "parcial") return "Pago parcial";
+  if (estadoPago === "pendiente") return "Pendiente";
   return "Abierta";
+}
+
+function uniqueByFirebaseId(items) {
+  const map = new Map();
+
+  items.forEach((item) => {
+    const key = item.firebaseId || item.id || item.folio;
+    if (!map.has(key)) map.set(key, item);
+  });
+
+  return Array.from(map.values());
 }
 
 function NotasRapidas() {
   const { tenantId } = useAuth();
   const receiptRef = useRef(null);
 
+  const [vista, setVista] = useState("activas");
   const [search, setSearch] = useState("");
   const [notas, setNotas] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -64,46 +113,13 @@ function NotasRapidas() {
 
       try {
         const firebaseNotas = await getTenantItems(COLLECTION, tenantId);
+        const unicas = uniqueByFirebaseId(firebaseNotas);
 
-        if (firebaseNotas.length > 0) {
-          setNotas(firebaseNotas);
-          guardarNotasLocales(firebaseNotas);
-        } else {
-          const locales = cargarNotasLocales();
-
-          if (locales.length > 0) {
-            const migradas = [];
-
-            for (const nota of locales) {
-              const ref = await addTenantItem(
-                COLLECTION,
-                {
-                  ...nota,
-                  conceptos: nota.conceptos || [],
-                  estado: nota.estado || "abierta",
-                  estadoPago: nota.estadoPago || "Pendiente",
-                },
-                tenantId
-              );
-
-              migradas.push({
-                ...nota,
-                firebaseId: ref.id,
-                conceptos: nota.conceptos || [],
-                estado: nota.estado || "abierta",
-                estadoPago: nota.estadoPago || "Pendiente",
-              });
-            }
-
-            setNotas(migradas);
-            guardarNotasLocales(migradas);
-          } else {
-            setNotas([]);
-          }
-        }
+        setNotas(unicas);
+        guardarNotasLocales(unicas);
       } catch (error) {
         console.error("Error cargando notas:", error);
-        setNotas(cargarNotasLocales());
+        setNotas([]);
       } finally {
         setCargando(false);
       }
@@ -130,6 +146,7 @@ function NotasRapidas() {
         ${nota.folio}
         ${nota.cliente}
         ${nota.telefono}
+        ${nota.estado}
         ${nota.estadoPago}
         ${nota.metodoPago}
         ${conceptosTexto}
@@ -139,9 +156,24 @@ function NotasRapidas() {
     });
   }, [search, notas]);
 
+  const notasActivas = useMemo(() => {
+    return notasFiltradas.filter(esNotaActiva);
+  }, [notasFiltradas]);
+
+  const notasHistorial = useMemo(() => {
+    return notasFiltradas.filter((nota) => !esNotaActiva(nota));
+  }, [notasFiltradas]);
+
+  const listaVisible = vista === "activas" ? notasActivas : notasHistorial;
+
   const actualizarNotaLocal = (actualizada) => {
     setNotas((prev) =>
-      prev.map((item) => (item.id === actualizada.id ? actualizada : item))
+      prev.map((item) =>
+        String(item.firebaseId || item.id) ===
+        String(actualizada.firebaseId || actualizada.id)
+          ? actualizada
+          : item
+      )
     );
 
     setNotaSeleccionada(actualizada);
@@ -154,11 +186,7 @@ function NotasRapidas() {
       await updateTenantItem(COLLECTION, nota.firebaseId, nota, tenantId);
     } else {
       const ref = await addTenantItem(COLLECTION, nota, tenantId);
-
-      final = {
-        ...nota,
-        firebaseId: ref.id,
-      };
+      final = { ...nota, firebaseId: ref.id };
     }
 
     actualizarNotaLocal(final);
@@ -168,11 +196,14 @@ function NotasRapidas() {
   const crearNota = async (datos) => {
     const nuevaNota = {
       id: Date.now(),
-      folio: generarFolio(notas.length + 1),
+      folio: generarFolio(notas),
       ...datos,
       conceptos: datos.conceptos || [],
-      estado: datos.estado || "abierta",
-      estadoPago: datos.estadoPago || "Pendiente",
+      estado: "abierta",
+      estadoPago: "Pendiente",
+      fechaCreacion: datos.fechaCreacion || fechaActual(),
+      horaCreacion: datos.horaCreacion || horaActual(),
+      abono: Number(datos.abono || 0),
     };
 
     try {
@@ -188,6 +219,7 @@ function NotasRapidas() {
       setNotas(actualizadas);
       guardarNotasLocales(actualizadas);
       setNotaSeleccionada(final);
+      setVista("activas");
       setModalOpen(false);
     } catch (error) {
       console.error("Error creando nota:", error);
@@ -197,10 +229,11 @@ function NotasRapidas() {
 
   const actualizarNota = async (actualizada) => {
     try {
-      await guardarNotaFirebase(actualizada);
+      return await guardarNotaFirebase(actualizada);
     } catch (error) {
       console.error("Error actualizando nota:", error);
       alert("No se pudo actualizar la nota en Firebase.");
+      return null;
     }
   };
 
@@ -211,24 +244,50 @@ function NotasRapidas() {
     await actualizarNota({
       ...nota,
       estado: "cancelada",
+      fechaCancelacion: fechaActual(),
+      horaCancelacion: horaActual(),
     });
+
+    setVista("historial");
+  };
+
+  const reabrirNota = async (nota) => {
+    const confirmar = window.confirm("¿Reabrir esta nota?");
+    if (!confirmar) return;
+
+    const actualizada = await actualizarNota({
+      ...nota,
+      estado: "abierta",
+      estadoPago:
+        normalizar(nota.estadoPago) === "pagado" ? "Pendiente" : nota.estadoPago,
+      fechaReapertura: fechaActual(),
+      horaReapertura: horaActual(),
+    });
+
+    if (actualizada) setVista("activas");
   };
 
   const marcarPagada = async (nota) => {
     await actualizarNota({
       ...nota,
       estadoPago: "Pagado",
-      estado: "cerrada",
       abono: totalNota(nota),
+      fechaPago: fechaActual(),
+      horaPago: horaActual(),
     });
   };
 
   const guardarNota = async () => {
-    await actualizarNota(notaSeleccionada);
+    await actualizarNota({
+      ...notaSeleccionada,
+      fechaUltimaEdicion: fechaActual(),
+      horaUltimaEdicion: horaActual(),
+    });
+
     alert("Nota guardada.");
   };
 
-  const descargarPDF = async () => {
+  const finalizarYDescargarPDF = async () => {
     await generarPDFDesdeElemento(
       receiptRef.current,
       `${notaSeleccionada.folio}-nota.pdf`
@@ -236,8 +295,17 @@ function NotasRapidas() {
 
     await actualizarNota({
       ...notaSeleccionada,
-      estado: notaSeleccionada.estadoPago === "Pagado" ? "cerrada" : "abierta",
+      estado: "cerrada",
+      estadoPago:
+        normalizar(notaSeleccionada.estadoPago) === "pagado"
+          ? "Pagado"
+          : notaSeleccionada.estadoPago || "Pendiente",
+      fechaCierre: fechaActual(),
+      horaCierre: horaActual(),
     });
+
+    setVista("historial");
+    alert("Nota finalizada y PDF generado.");
   };
 
   return (
@@ -258,19 +326,39 @@ function NotasRapidas() {
         />
       </div>
 
+      <div className="sus-tabs">
+        <button
+          type="button"
+          className={vista === "activas" ? "active" : ""}
+          onClick={() => setVista("activas")}
+        >
+          Activas
+        </button>
+
+        <button
+          type="button"
+          className={vista === "historial" ? "active" : ""}
+          onClick={() => setVista("historial")}
+        >
+          Historial
+        </button>
+      </div>
+
       {cargando && <div className="empty-state">Cargando notas...</div>}
 
-      {!cargando && (
+      {!cargando && listaVisible.length > 0 && (
         <div className="nr-grid">
-          {notasFiltradas.map((nota) => {
-            const pendiente =
-              nota.estado !== "cancelada" && nota.estadoPago !== "Pagado";
+          {listaVisible.map((nota) => {
+            const activa = esNotaActiva(nota);
 
             return (
-              <article className="nr-card" key={nota.id}>
+              <article
+                className="nr-card"
+                key={nota.firebaseId || nota.id || nota.folio}
+              >
                 <div className="nr-card-top">
                   <span>{nota.folio}</span>
-                  <strong className={`nr-status ${nota.estadoPago}`}>
+                  <strong className={`nr-status ${normalizar(nota.estadoPago)}`}>
                     {estadoVisual(nota)}
                   </strong>
                 </div>
@@ -282,34 +370,42 @@ function NotasRapidas() {
                 </p>
 
                 <p className="nr-small">
-                  {nota.metodoPago} · {nota.estadoPago}
+                  {nota.metodoPago || "Sin método"} ·{" "}
+                  {nota.estadoPago || "Pendiente"}
                 </p>
 
                 <div className="nr-card-total">
                   ${totalNota(nota).toFixed(2)}
                 </div>
 
-                <div className="nr-card-actions">
+                <div className="service-card-actions">
                   <button onClick={() => setNotaSeleccionada(nota)}>
                     Abrir
                   </button>
+
+                  {activa ? (
+                    <button
+                      className="cancel-service-button"
+                      onClick={() => cancelarNota(nota)}
+                    >
+                      Cancelar
+                    </button>
+                  ) : (
+                    <button
+                      className="reopen-button"
+                      onClick={() => reabrirNota(nota)}
+                    >
+                      Reabrir
+                    </button>
+                  )}
                 </div>
 
-                {pendiente && (
+                {activa && normalizar(nota.estadoPago) !== "pagado" && (
                   <button
                     className="nr-paid-button"
                     onClick={() => marcarPagada(nota)}
                   >
                     Marcar pagado
-                  </button>
-                )}
-
-                {nota.estado !== "cerrada" && nota.estado !== "cancelada" && (
-                  <button
-                    className="cancel-service-button"
-                    onClick={() => cancelarNota(nota)}
-                  >
-                    Cancelar
                   </button>
                 )}
               </article>
@@ -318,8 +414,12 @@ function NotasRapidas() {
         </div>
       )}
 
-      {!cargando && notasFiltradas.length === 0 && (
-        <div className="empty-state">No hay notas registradas.</div>
+      {!cargando && listaVisible.length === 0 && (
+        <div className="empty-state">
+          {vista === "activas"
+            ? "No hay notas activas."
+            : "No hay notas en historial."}
+        </div>
       )}
 
       <button className="floating-action" onClick={() => setModalOpen(true)}>
@@ -350,36 +450,75 @@ function NotasRapidas() {
               </button>
             </div>
 
+            {!esNotaActiva(notaSeleccionada) && (
+              <div className="empty-state">
+                Esta nota está en historial. Puedes descargar su PDF o reabrirla.
+              </div>
+            )}
+
             <NotaReceipt nota={notaSeleccionada} receiptRef={receiptRef} />
 
             <div className="nr-actions">
-              {notaSeleccionada.estado !== "cerrada" &&
-                notaSeleccionada.estado !== "cancelada" && (
+              {esNotaActiva(notaSeleccionada) && (
+                <>
                   <button
                     className="nr-sign-button"
                     onClick={() => setFirmaModal(true)}
                   >
                     Firmar cliente
                   </button>
-                )}
 
-              {notaSeleccionada.estadoPago !== "Pagado" &&
-                notaSeleccionada.estado !== "cancelada" && (
-                  <button
-                    className="nr-paid-button"
-                    onClick={() => marcarPagada(notaSeleccionada)}
-                  >
-                    Marcar pagado
+                  {normalizar(notaSeleccionada.estadoPago) !== "pagado" && (
+                    <button
+                      className="nr-paid-button"
+                      onClick={() => marcarPagada(notaSeleccionada)}
+                    >
+                      Marcar pagado
+                    </button>
+                  )}
+
+                  <button className="secondary-button" onClick={guardarNota}>
+                    Guardar
                   </button>
-                )}
 
-              <button className="secondary-button" onClick={guardarNota}>
-                Guardar
-              </button>
+                  <button
+                    className="cancel-service-button"
+                    onClick={() => cancelarNota(notaSeleccionada)}
+                  >
+                    Cancelar nota
+                  </button>
 
-              <button className="primary-button" onClick={descargarPDF}>
-                Descargar PDF
-              </button>
+                  <button
+                    className="primary-button"
+                    onClick={finalizarYDescargarPDF}
+                  >
+                    Finalizar y descargar PDF
+                  </button>
+                </>
+              )}
+
+              {!esNotaActiva(notaSeleccionada) && (
+                <>
+                  <button
+                    className="reopen-button"
+                    onClick={() => reabrirNota(notaSeleccionada)}
+                  >
+                    Reabrir nota
+                  </button>
+
+                  <button
+                    className="primary-button"
+                    onClick={() =>
+                      generarPDFDesdeElemento(
+                        receiptRef.current,
+                        `${notaSeleccionada.folio}-nota.pdf`
+                      )
+                    }
+                  >
+                    Descargar PDF
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
