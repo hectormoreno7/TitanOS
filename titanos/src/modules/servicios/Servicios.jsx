@@ -12,93 +12,107 @@ const STORAGE_KEY = "titanos_servicios_v3";
 const PENDING_SERVICE_KEY = "titanos_pending_service";
 const COLLECTION = "servicios";
 
-function cargarServiciosLocales() {
+function guardarServiciosLocales(servicios) {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(servicios));
   } catch {
-    return [];
+    console.warn("No se pudo guardar servicios en localStorage.");
   }
 }
 
-function guardarServiciosLocales(servicios) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(servicios));
+function fechaActual() {
+  return new Date().toLocaleDateString("es-MX");
 }
 
-function generarFolioServicio(consecutivo) {
+function horaActual() {
+  return new Date().toLocaleTimeString("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function esServicioActivo(servicio) {
+  const estado = String(servicio.estado || "activo").trim().toLowerCase();
+
+  if (!["activo", "abierto", "abierta", "en proceso", "en_proceso", "pendiente"].includes(estado)) {
+    return false;
+  }
+
+  if (servicio.fechaEntrega) return false;
+  if (servicio.fechaCierre) return false;
+  if (servicio.fechaCancelacion) return false;
+
+  return true;
+}
+
+function totalConceptos(conceptos = []) {
+  return conceptos.reduce((acc, item) => {
+    return acc + Number(item.cantidad || 0) * Number(item.precio || 0);
+  }, 0);
+}
+
+function uniqueByFirebaseId(items) {
+  const map = new Map();
+
+  items.forEach((item) => {
+    const key = item.firebaseId || item.id || item.folio;
+    if (!map.has(key)) map.set(key, item);
+  });
+
+  return Array.from(map.values());
+}
+
+function generarFolioServicio(servicios) {
   const fecha = new Date();
   const mes = String(fecha.getMonth() + 1).padStart(2, "0");
   const año = String(fecha.getFullYear()).slice(-2);
+  const prefijo = `TBW-S-${mes}${año}-`;
 
-  return `TBW-S-${mes}${año}-${String(consecutivo).padStart(5, "0")}`;
+  const numeros = servicios
+    .map((s) => String(s.folio || ""))
+    .filter((folio) => folio.startsWith(prefijo))
+    .map((folio) => Number(folio.replace(prefijo, "")))
+    .filter((num) => !Number.isNaN(num));
+
+  const siguiente = numeros.length > 0 ? Math.max(...numeros) + 1 : 1;
+
+  return `${prefijo}${String(siguiente).padStart(5, "0")}`;
 }
 
 function Servicios() {
   const { tenantId } = useAuth();
 
+  const [vista, setVista] = useState("activos");
   const [search, setSearch] = useState("");
   const [servicios, setServicios] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [servicioSeleccionado, setServicioSeleccionado] = useState(null);
   const [cargando, setCargando] = useState(true);
 
-  useEffect(() => {
-    async function cargarServicios() {
-      setCargando(true);
+  const cargarServicios = async () => {
+    setCargando(true);
 
-      try {
-        const firebaseServicios = await getTenantItems(COLLECTION, tenantId);
+    try {
+      const firebaseServicios = await getTenantItems(COLLECTION, tenantId);
+      const unicos = uniqueByFirebaseId(firebaseServicios);
 
-        if (firebaseServicios.length > 0) {
-          setServicios(firebaseServicios);
-          guardarServiciosLocales(firebaseServicios);
-        } else {
-          const locales = cargarServiciosLocales();
-
-          if (locales.length > 0) {
-            const migrados = [];
-
-            for (const servicio of locales) {
-              const ref = await addTenantItem(
-                COLLECTION,
-                {
-                  ...servicio,
-                  estado: servicio.estado || "activo",
-                  conceptos: servicio.conceptos || [],
-                },
-                tenantId
-              );
-
-              migrados.push({
-                ...servicio,
-                firebaseId: ref.id,
-                estado: servicio.estado || "activo",
-                conceptos: servicio.conceptos || [],
-              });
-            }
-
-            setServicios(migrados);
-            guardarServiciosLocales(migrados);
-          } else {
-            setServicios([]);
-          }
-        }
-      } catch (error) {
-        console.error("Error cargando servicios:", error);
-        setServicios(cargarServiciosLocales());
-      } finally {
-        setCargando(false);
-      }
+      setServicios(unicos);
+      guardarServiciosLocales(unicos);
+    } catch (error) {
+      console.error("Error cargando servicios:", error);
+      setServicios([]);
+    } finally {
+      setCargando(false);
     }
+  };
 
+  useEffect(() => {
     cargarServicios();
   }, [tenantId]);
 
   useEffect(() => {
     const pendiente = localStorage.getItem(PENDING_SERVICE_KEY);
-
-    if (pendiente) {
-      setIsModalOpen(true);
-    }
+    if (pendiente) setIsModalOpen(true);
   }, []);
 
   const serviciosFiltrados = useMemo(() => {
@@ -129,12 +143,21 @@ function Servicios() {
     });
   }, [search, servicios]);
 
-  const crearServicio = async (datosServicio) => {
-    const nuevoNumero = servicios.length + 1;
+  const serviciosActivos = useMemo(() => {
+    return serviciosFiltrados.filter(esServicioActivo);
+  }, [serviciosFiltrados]);
 
+  const serviciosHistorial = useMemo(() => {
+    return serviciosFiltrados.filter((servicio) => !esServicioActivo(servicio));
+  }, [serviciosFiltrados]);
+
+  const listaVisible =
+    vista === "activos" ? serviciosActivos : serviciosHistorial;
+
+  const crearServicio = async (datosServicio) => {
     const nuevoServicio = {
       id: Date.now(),
-      folio: generarFolioServicio(nuevoNumero),
+      folio: generarFolioServicio(servicios),
 
       clienteId: datosServicio.clienteId || "",
       bicicletaId: datosServicio.bicicletaId || "",
@@ -156,9 +179,9 @@ function Servicios() {
       tipoServicio: datosServicio.tipoServicio || "",
       transmision: datosServicio.transmision || "",
 
-      fechaIngreso: new Date().toLocaleDateString("es-MX"),
+      fechaIngreso: fechaActual(),
+      horaIngreso: horaActual(),
       fechaEntrega: "",
-      entrega: "",
 
       total: 0,
       accesorios: datosServicio.accesorios || "",
@@ -219,7 +242,9 @@ function Servicios() {
       }
 
       const actualizados = servicios.map((item) =>
-        String(item.id) === String(servicioFinal.id) ? servicioFinal : item
+        String(item.firebaseId || item.id) === String(servicioFinal.firebaseId || servicioFinal.id)
+          ? servicioFinal
+          : item
       );
 
       setServicios(actualizados);
@@ -231,17 +256,53 @@ function Servicios() {
     }
   };
 
+  const finalizarServicioRapido = async (servicio) => {
+    const confirmar = window.confirm(
+      "¿Mover este servicio al historial como finalizado?"
+    );
+
+    if (!confirmar) return;
+
+    await actualizarServicio({
+      ...servicio,
+      estado: "finalizado",
+      fechaEntrega: servicio.fechaEntrega || fechaActual(),
+      horaEntrega: servicio.horaEntrega || horaActual(),
+      total: Number(servicio.total || totalConceptos(servicio.conceptos)),
+    });
+
+    setVista("historial");
+  };
+
   const cancelarServicio = async (servicio) => {
     const confirmar = window.confirm("¿Cancelar este servicio?");
     if (!confirmar) return;
 
-    const actualizado = {
+    await actualizarServicio({
       ...servicio,
       estado: "cancelado",
-      fechaCancelacion: new Date().toLocaleDateString("es-MX"),
-    };
+      fechaCancelacion: fechaActual(),
+      horaCancelacion: horaActual(),
+    });
 
-    await actualizarServicio(actualizado);
+    setVista("historial");
+  };
+
+  const reabrirServicio = async (servicio) => {
+    const confirmar = window.confirm("¿Reabrir este servicio?");
+    if (!confirmar) return;
+
+    await actualizarServicio({
+      ...servicio,
+      estado: "activo",
+      fechaEntrega: "",
+      fechaCierre: "",
+      fechaCancelacion: "",
+      fechaReapertura: fechaActual(),
+      horaReapertura: horaActual(),
+    });
+
+    setVista("activos");
   };
 
   const cerrarModalServicio = () => {
@@ -249,17 +310,12 @@ function Servicios() {
     setIsModalOpen(false);
   };
 
-  const serviciosActivos = serviciosFiltrados.filter(
-    (servicio) =>
-      servicio.estado !== "cancelado" && servicio.estado !== "finalizado"
-  );
-
   return (
     <section className="servicios-page">
       <div className="module-header">
         <div>
           <h2>Servicios</h2>
-          <p>Servicios activos registrados en el taller.</p>
+          <p>Servicios activos e historial de hojas de servicio.</p>
         </div>
       </div>
 
@@ -272,49 +328,96 @@ function Servicios() {
         />
       </div>
 
+      <div className="sus-tabs">
+        <button
+          type="button"
+          className={vista === "activos" ? "active" : ""}
+          onClick={() => setVista("activos")}
+        >
+          Activos
+        </button>
+
+        <button
+          type="button"
+          className={vista === "historial" ? "active" : ""}
+          onClick={() => setVista("historial")}
+        >
+          Historial
+        </button>
+      </div>
+
       {cargando && <div className="empty-state">Cargando servicios...</div>}
 
-      {!cargando && (
+      {!cargando && listaVisible.length > 0 && (
         <div className="services-grid">
-          {serviciosActivos.map((servicio) => (
-            <article className="service-card" key={servicio.id}>
-              <div className="service-card-top">
-                <span className="service-folio">{servicio.folio}</span>
-              </div>
+          {listaVisible.map((servicio) => {
+            const activo = esServicioActivo(servicio);
 
-              <h3>{servicio.cliente}</h3>
+            return (
+              <article className="service-card" key={servicio.firebaseId || servicio.id}>
+                <div className="service-card-top">
+                  <span className="service-folio">{servicio.folio}</span>
+                </div>
 
-              <p className="service-bike">
-                {servicio.bicicleta} · {servicio.color}
-              </p>
+                <h3>{servicio.cliente}</h3>
 
-              <p className="service-type">{servicio.tipoServicio}</p>
+                <p className="service-bike">
+                  {servicio.bicicleta} · {servicio.color}
+                </p>
 
-              <div className="service-meta">
-                <span>Recepción: {servicio.fechaIngreso}</span>
-              </div>
+                <p className="service-type">{servicio.tipoServicio}</p>
 
-              <div className="service-footer">
-                <strong>${Number(servicio.total || 0).toFixed(2)}</strong>
+                <div className="service-meta">
+                  <span>Recepción: {servicio.fechaIngreso}</span>
+                  <span>Estado: {servicio.estado || "activo"}</span>
+                </div>
 
-                <button onClick={() => setServicioSeleccionado(servicio)}>
-                  Ver servicio
-                </button>
-              </div>
+                <div className="service-footer">
+                  <strong>${Number(servicio.total || 0).toFixed(2)}</strong>
 
-              <button
-                className="cancel-service-button"
-                onClick={() => cancelarServicio(servicio)}
-              >
-                Cancelar
-              </button>
-            </article>
-          ))}
+                  <button onClick={() => setServicioSeleccionado(servicio)}>
+                    Ver servicio
+                  </button>
+                </div>
+
+                {activo ? (
+                  <div className="service-card-actions">
+                    <button
+                      className="primary-button"
+                      onClick={() => finalizarServicioRapido(servicio)}
+                    >
+                      Finalizar
+                    </button>
+
+                    <button
+                      className="cancel-service-button"
+                      onClick={() => cancelarServicio(servicio)}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                ) : (
+                  <div className="service-card-actions">
+                    <button
+                      className="reopen-button"
+                      onClick={() => reabrirServicio(servicio)}
+                    >
+                      Reabrir
+                    </button>
+                  </div>
+                )}
+              </article>
+            );
+          })}
         </div>
       )}
 
-      {!cargando && serviciosActivos.length === 0 && (
-        <div className="empty-state">No se encontraron servicios activos.</div>
+      {!cargando && listaVisible.length === 0 && (
+        <div className="empty-state">
+          {vista === "activos"
+            ? "No se encontraron servicios activos."
+            : "No hay servicios en historial."}
+        </div>
       )}
 
       <button className="floating-action" onClick={() => setIsModalOpen(true)}>

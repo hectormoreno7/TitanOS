@@ -3,17 +3,42 @@ import PreviewSection from "../servicios/PreviewSection";
 import SuspensionReceipt from "../suspensiones/SuspensionReceipt";
 import MovimientoReceipt from "../recoleccionEntrega/MovimientoReceipt";
 import NotaReceipt from "../notasRapidas/NotaReceipt";
-import { generarPDFDesdeElemento } from "../servicios/pdfGenerator";
+import {
+  generarPDFDesdeElemento,
+  generarPDFServicio,
+  generarPDFSuspension,
+} from "../servicios/pdfGenerator";
 import { useAuth } from "../../context/AuthContext";
-import { getTenantItems } from "../../firebase/firestore";
+import { getTenantItems, updateTenantItem } from "../../firebase/firestore";
 
 const SERVICES_KEY = "titanos_servicios_v3";
 const SUSPENSIONES_KEY = "titanos_suspensiones_v2";
 const ER_KEY = "titanos_recoleccion_entrega_v8";
 const NOTAS_KEY = "titanos_notas_rapidas_v1";
 
+const ESTADOS_NO_ACTIVOS = [
+  "finalizado",
+  "finalizada",
+  "cerrado",
+  "cerrada",
+  "cancelado",
+  "cancelada",
+  "historial",
+];
+
 function saveStorage(key, data) {
   localStorage.setItem(key, JSON.stringify(data));
+}
+
+function fechaActual() {
+  return new Date().toLocaleDateString("es-MX");
+}
+
+function horaActual() {
+  return new Date().toLocaleTimeString("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function totalConceptos(conceptos = []) {
@@ -22,30 +47,42 @@ function totalConceptos(conceptos = []) {
   }, 0);
 }
 
-function normalizarHistorial({ servicios, suspensiones, movimientos, notas }) {
-  const serviciosNormalizados = servicios.map((item) => ({
-    id: `servicio-${item.id}`,
-    tipo: "servicio",
-    folio: item.folio,
-    cliente: item.cliente,
-    telefono: item.telefono,
-    fecha: item.fechaEntrega || item.fechaIngreso || "",
-    estado: item.estado || "activo",
-    total: Number(item.total || totalConceptos(item.conceptos)),
-    raw: item,
-  }));
+function normalizarEstado(estado, fallback = "activo") {
+  return String(estado || fallback).trim().toLowerCase();
+}
 
-  const suspensionesNormalizadas = suspensiones.map((item) => ({
-    id: `suspension-${item.id}`,
-    tipo: "suspension",
-    folio: item.folio,
-    cliente: item.cliente,
-    telefono: item.telefono,
-    fecha: item.fechaCierre || item.fechaCreacion || "",
-    estado: item.estado || "abierta",
-    total: Number(item.total || totalConceptos(item.conceptos)),
-    raw: item,
-  }));
+function esActivo(item, fallback = "activo") {
+  return !ESTADOS_NO_ACTIVOS.includes(normalizarEstado(item.estado, fallback));
+}
+
+function normalizarHistorial({ servicios, suspensiones, movimientos, notas }) {
+  const serviciosNormalizados = servicios
+    .filter((item) => !esActivo(item, "activo"))
+    .map((item) => ({
+      id: `servicio-${item.id}`,
+      tipo: "servicio",
+      folio: item.folio,
+      cliente: item.cliente,
+      telefono: item.telefono,
+      fecha: item.fechaEntrega || item.fechaIngreso || "",
+      estado: item.estado || "finalizado",
+      total: Number(item.total || totalConceptos(item.conceptos)),
+      raw: item,
+    }));
+
+  const suspensionesNormalizadas = suspensiones
+    .filter((item) => !esActivo(item, "abierta"))
+    .map((item) => ({
+      id: `suspension-${item.id}`,
+      tipo: "suspension",
+      folio: item.folio,
+      cliente: item.cliente,
+      telefono: item.telefono,
+      fecha: item.fechaCierre || item.fechaCreacion || "",
+      estado: item.estado || "cerrada",
+      total: Number(item.total || totalConceptos(item.conceptos)),
+      raw: item,
+    }));
 
   const movimientosNormalizados = movimientos.map((item) => ({
     id: `movimiento-${item.id}`,
@@ -103,36 +140,36 @@ function Historial() {
     notas: [],
   });
 
-  useEffect(() => {
-    async function cargarHistorial() {
-      setCargando(true);
+  const cargarHistorial = async () => {
+    setCargando(true);
 
-      try {
-        const [servicios, suspensiones, movimientos, notas] = await Promise.all([
-          getTenantItems("servicios", tenantId),
-          getTenantItems("suspensiones", tenantId),
-          getTenantItems("recoleccionEntrega", tenantId),
-          getTenantItems("notasRapidas", tenantId),
-        ]);
+    try {
+      const [servicios, suspensiones, movimientos, notas] = await Promise.all([
+        getTenantItems("servicios", tenantId),
+        getTenantItems("suspensiones", tenantId),
+        getTenantItems("recoleccionEntrega", tenantId),
+        getTenantItems("notasRapidas", tenantId),
+      ]);
 
-        setData({
-          servicios,
-          suspensiones,
-          movimientos,
-          notas,
-        });
+      setData({
+        servicios,
+        suspensiones,
+        movimientos,
+        notas,
+      });
 
-        saveStorage(SERVICES_KEY, servicios);
-        saveStorage(SUSPENSIONES_KEY, suspensiones);
-        saveStorage(ER_KEY, movimientos);
-        saveStorage(NOTAS_KEY, notas);
-      } catch (error) {
-        console.error("Error cargando historial desde Firebase:", error);
-      } finally {
-        setCargando(false);
-      }
+      saveStorage(SERVICES_KEY, servicios);
+      saveStorage(SUSPENSIONES_KEY, suspensiones);
+      saveStorage(ER_KEY, movimientos);
+      saveStorage(NOTAS_KEY, notas);
+    } catch (error) {
+      console.error("Error cargando historial desde Firebase:", error);
+    } finally {
+      setCargando(false);
     }
+  };
 
+  useEffect(() => {
     cargarHistorial();
   }, [tenantId]);
 
@@ -156,8 +193,84 @@ function Historial() {
     });
   }, [historial, search, filtroTipo]);
 
+  const reabrirSeleccionado = async () => {
+    if (!seleccionado) return;
+
+    const confirmar = window.confirm(
+      `¿Reabrir este ${tipoLabel(seleccionado.tipo).toLowerCase()}?`
+    );
+
+    if (!confirmar) return;
+
+    try {
+      if (seleccionado.tipo === "servicio") {
+        await updateTenantItem(
+          "servicios",
+          seleccionado.raw.firebaseId,
+          {
+            ...seleccionado.raw,
+            estado: "activo",
+            fechaReapertura: fechaActual(),
+            horaReapertura: horaActual(),
+          },
+          tenantId
+        );
+      }
+
+      if (seleccionado.tipo === "suspension") {
+        await updateTenantItem(
+          "suspensiones",
+          seleccionado.raw.firebaseId,
+          {
+            ...seleccionado.raw,
+            estado: "abierta",
+            fechaReapertura: fechaActual(),
+            horaReapertura: horaActual(),
+          },
+          tenantId
+        );
+      }
+
+      setSeleccionado(null);
+      await cargarHistorial();
+
+      alert("Registro reabierto.");
+    } catch (error) {
+      console.error("Error reabriendo registro:", error);
+      alert("No se pudo reabrir el registro.");
+    }
+  };
+
   const descargarPDF = async () => {
     if (!seleccionado) return;
+
+    if (seleccionado.tipo === "servicio") {
+      const servicio = seleccionado.raw;
+
+      await generarPDFServicio({
+        formData: servicio,
+        evidencias: servicio.evidencias || [],
+        checklist: servicio.checklist || {},
+        grasas: servicio.grasas || {},
+        mediciones: servicio.mediciones || {},
+        observacionesFinales: servicio.observacionesFinales || "",
+        firmaCliente: servicio.firmaCliente || "",
+        firmaTaller: servicio.firmaTaller || "",
+        totalServicio: Number(servicio.total || totalConceptos(servicio.conceptos)),
+        nombreArchivo: `${servicio.folio || "servicio"}-hoja-servicio.pdf`,
+      });
+
+      return;
+    }
+
+    if (seleccionado.tipo === "suspension") {
+      await generarPDFSuspension({
+        suspension: seleccionado.raw,
+        nombreArchivo: `${seleccionado.folio || "suspension"}-suspension.pdf`,
+      });
+
+      return;
+    }
 
     await generarPDFDesdeElemento(
       receiptRef.current,
@@ -220,7 +333,7 @@ function Historial() {
           <p>
             {cargando
               ? "Cargando historial desde Firebase..."
-              : "Servicios, suspensiones, notas y recolecciones en un solo lugar."}
+              : "Servicios finalizados, suspensiones cerradas, notas y recolecciones."}
           </p>
         </div>
       </div>
@@ -298,6 +411,13 @@ function Historial() {
             <div className="historial-preview-wrap">{renderPreview()}</div>
 
             <div className="historial-actions">
+              {(seleccionado.tipo === "servicio" ||
+                seleccionado.tipo === "suspension") && (
+                <button className="reopen-button" onClick={reabrirSeleccionado}>
+                  Reabrir
+                </button>
+              )}
+
               <button className="primary-button" onClick={descargarPDF}>
                 Descargar PDF
               </button>

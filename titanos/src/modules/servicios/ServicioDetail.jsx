@@ -370,7 +370,20 @@ function ServicioDetail({ servicio, onClose, onUpdate }) {
   };
 
 const descargarPDF = async () => {
-  const actualizado = construirServicioActualizado();
+  const confirmar = window.confirm(
+    "¿Generar PDF y finalizar este servicio? El servicio pasará al historial."
+  );
+
+  if (!confirmar) return;
+
+  const entregaId = crearEntregaDomicilio();
+
+  const actualizado = construirServicioActualizado({
+    estado: "finalizado",
+    fechaEntrega: fechaActual(),
+    horaEntrega: horaActual(),
+    recoleccionEntregaId: entregaId || formData.recoleccionEntregaId || "",
+  });
 
   setFormData(actualizado);
   await onUpdate(actualizado);
@@ -388,7 +401,8 @@ const descargarPDF = async () => {
     nombreArchivo: `${actualizado.folio || "servicio"}-hoja-servicio.pdf`,
   });
 
-  alert("PDF generado y servicio guardado.");
+  alert("PDF generado y servicio finalizado.");
+  onClose();
 };
 
   return (

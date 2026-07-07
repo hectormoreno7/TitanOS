@@ -21,12 +21,104 @@ function getStorage(key, fallback = []) {
 }
 
 function saveStorage(key, data) {
-  localStorage.setItem(key, JSON.stringify(data));
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch {
+    console.warn(`No se pudo guardar ${key} en localStorage.`);
+  }
+}
+
+function normalizarTexto(valor) {
+  return String(valor || "").trim().toLowerCase();
+}
+
+function esServicioReal(item) {
+  return String(item.folio || "").startsWith("TBW-S-");
+}
+
+function esServicioActivo(item) {
+  if (!esServicioReal(item)) return false;
+
+  const estado = normalizarTexto(item.estado || "activo");
+
+  const estadosActivos = [
+    "activo",
+    "abierto",
+    "abierta",
+    "en proceso",
+    "en_proceso",
+    "pendiente",
+  ];
+
+  if (!estadosActivos.includes(estado)) return false;
+  if (item.fechaEntrega) return false;
+  if (item.fechaCierre) return false;
+  if (item.fechaCancelacion) return false;
+
+  return true;
+}
+
+function esServicioFinalizado(item) {
+  if (!esServicioReal(item)) return false;
+
+  const estado = normalizarTexto(item.estado);
+
+  return (
+    estado === "finalizado" ||
+    estado === "finalizada" ||
+    estado === "cerrado" ||
+    estado === "cerrada" ||
+    Boolean(item.fechaEntrega)
+  );
+}
+
+function esSuspensionActiva(item) {
+  const estado = normalizarTexto(item.estado || "abierta");
+
+  return ![
+    "cerrada",
+    "cerrado",
+    "finalizada",
+    "finalizado",
+    "cancelada",
+    "cancelado",
+    "historial",
+  ].includes(estado);
+}
+
+function esSuspensionCerrada(item) {
+  const estado = normalizarTexto(item.estado);
+
+  return estado === "cerrada" || estado === "cerrado" || Boolean(item.fechaCierre);
+}
+
+function esNotaValida(nota) {
+  const estado = normalizarTexto(nota.estado);
+
+  return !["cancelada", "cancelado"].includes(estado);
+}
+
+function esNotaPagada(nota) {
+  const estadoPago = normalizarTexto(nota.estadoPago);
+  const estado = normalizarTexto(nota.estado);
+
+  return (
+    estadoPago === "pagado" ||
+    estado === "cerrada" ||
+    estado === "cerrado" ||
+    estado === "finalizada" ||
+    estado === "finalizado"
+  );
+}
+
+function esNotaPendiente(nota) {
+  if (!esNotaValida(nota)) return false;
+  return !esNotaPagada(nota);
 }
 
 function parseDateMX(dateString) {
   if (!dateString) return null;
-  const [day, month, year] = dateString.split("/");
+  const [day, month, year] = String(dateString).split("/");
   if (!day || !month || !year) return null;
   return new Date(Number(year), Number(month) - 1, Number(day));
 }
@@ -66,6 +158,20 @@ function totalConceptos(conceptos = []) {
   return conceptos.reduce((acc, item) => {
     return acc + Number(item.cantidad || 0) * Number(item.precio || 0);
   }, 0);
+}
+
+function deduplicarServicios(servicios = []) {
+  const vistos = new Set();
+
+  return servicios.filter((servicio) => {
+    if (servicio.folio === "TBW-S-0726-00011") return false;
+
+    const key = servicio.firebaseId || servicio.folio;
+    if (vistos.has(key)) return false;
+
+    vistos.add(key);
+    return true;
+  });
 }
 
 function monthKey(date) {
@@ -110,13 +216,17 @@ function Dashboard() {
           getTenantItems("suspensiones", tenantId),
         ]);
 
-        setServicios(firebaseServicios);
+       const serviciosLimpios = deduplicarServicios(firebaseServicios);
+
+       setServicios(serviciosLimpios);
+       saveStorage(SERVICES_KEY, serviciosLimpios);
+
+
         setClientes(firebaseClientes);
         setMovimientos(firebaseMovimientos);
         setNotas(firebaseNotas);
         setSuspensiones(firebaseSuspensiones);
 
-        saveStorage(SERVICES_KEY, firebaseServicios);
         saveStorage(CLIENTS_KEY, firebaseClientes);
         saveStorage(ER_KEY, firebaseMovimientos);
         saveStorage(NOTES_KEY, firebaseNotas);
@@ -132,34 +242,21 @@ function Dashboard() {
   }, [tenantId]);
 
   const resumen = useMemo(() => {
-    const serviciosActivos = servicios.filter(
-      (item) => item.estado !== "finalizado" && item.estado !== "cancelado"
-    );
+    const serviciosReales = servicios.filter(esServicioReal);
+    const serviciosActivos = serviciosReales.filter(esServicioActivo);
+    const serviciosFinalizados = serviciosReales.filter(esServicioFinalizado);
 
-    const serviciosFinalizados = servicios.filter(
-      (item) => item.estado === "finalizado"
-    );
+    const suspensionesAbiertas = suspensiones.filter(esSuspensionActiva);
+    const suspensionesCerradas = suspensiones.filter(esSuspensionCerrada);
 
-    const suspensionesAbiertas = suspensiones.filter(
-      (item) => item.estado !== "cerrada" && item.estado !== "cancelada"
-    );
+    const notasValidas = notas.filter(esNotaValida);
+    const notasPagadas = notasValidas.filter(esNotaPagada);
+    const notasPendientes = notasValidas.filter(esNotaPendiente);
 
-    const suspensionesCerradas = suspensiones.filter(
-      (item) => item.estado === "cerrada"
-    );
-
-    const notasValidas = notas.filter((nota) => nota.estado !== "cancelada");
-    const notasPagadas = notasValidas.filter(
-      (nota) => nota.estadoPago === "Pagado"
-    );
-    const notasPendientes = notasValidas.filter(
-      (nota) => nota.estadoPago !== "Pagado"
-    );
-
-    const entregasPendientesLista = movimientos.filter(
-      (item) =>
-        item.estado === "programada" || item.estado === "pendienteEntrega"
-    );
+    const entregasPendientesLista = movimientos.filter((item) => {
+      const estado = normalizarTexto(item.estado || "programada");
+      return estado === "programada" || estado === "pendienteentrega";
+    });
 
     const totalServiciosHoy = serviciosFinalizados
       .filter((item) => sameDay(parseDateMX(item.fechaEntrega), today))
