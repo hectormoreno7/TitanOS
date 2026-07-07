@@ -3,7 +3,7 @@ import NuevaSuspensionModal from "./NuevaSuspensionModal";
 import SuspensionReceipt from "./SuspensionReceipt";
 import SignatureModal from "../servicios/SignatureModal";
 import ImageAnnotatorModal from "../servicios/ImageAnnotatorModal";
-import { generarPDFDesdeElemento } from "../servicios/pdfGenerator";
+import { generarPDFSuspension } from "../servicios/pdfGenerator";
 import { useAuth } from "../../context/AuthContext";
 import {
   getTenantItems,
@@ -72,8 +72,12 @@ function totalSuspension(item) {
   }, 0);
 }
 
+function normalizarEstado(estado) {
+  return String(estado || "abierta").trim().toLowerCase();
+}
+
 function esSuspensionActiva(item) {
-  const estado = String(item.estado || "").trim().toLowerCase();
+  const estado = normalizarEstado(item.estado);
 
   return ![
     "cerrada",
@@ -89,6 +93,7 @@ function Suspensiones() {
   const { tenantId } = useAuth();
   const receiptRef = useRef(null);
 
+  const [vista, setVista] = useState("activas");
   const [search, setSearch] = useState("");
   const [suspensiones, setSuspensiones] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -193,6 +198,13 @@ function Suspensiones() {
     return filtradas.filter(esSuspensionActiva);
   }, [filtradas]);
 
+  const suspensionesHistorial = useMemo(() => {
+    return filtradas.filter((item) => !esSuspensionActiva(item));
+  }, [filtradas]);
+
+  const listaVisible =
+    vista === "activas" ? suspensionesActivas : suspensionesHistorial;
+
   const actualizarLocal = (actualizada) => {
     setSuspensiones((prev) =>
       prev.map((item) => (item.id === actualizada.id ? actualizada : item))
@@ -270,10 +282,32 @@ function Suspensiones() {
       });
 
       setSeleccionada(null);
+      setVista("historial");
       alert("Suspensión cancelada.");
     } catch (error) {
       console.error("Error cancelando suspensión:", error);
       alert("No se pudo cancelar la suspensión.");
+    }
+  };
+
+  const reabrirSuspension = async (item) => {
+    const confirmar = window.confirm("¿Reabrir esta suspensión?");
+    if (!confirmar) return;
+
+    try {
+      const actualizada = await guardarEnFirebase({
+        ...item,
+        estado: "abierta",
+        fechaReapertura: fechaActual(),
+        horaReapertura: horaActual(),
+      });
+
+      setSeleccionada(actualizada);
+      setVista("activas");
+      alert("Suspensión reabierta.");
+    } catch (error) {
+      console.error("Error reabriendo suspensión:", error);
+      alert("No se pudo reabrir la suspensión.");
     }
   };
 
@@ -354,7 +388,7 @@ function Suspensiones() {
           const ctx = canvas.getContext("2d");
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-          resolve(canvas.toDataURL("image/jpeg", 0.62));
+          resolve(canvas.toDataURL("image/jpeg", 0.72));
         };
 
         img.onerror = reject;
@@ -487,11 +521,12 @@ function Suspensiones() {
 
       const final = await guardarEnFirebase(actualizada);
 
-      await generarPDFDesdeElemento(
-        receiptRef.current,
-        `${final.folio}-suspension.pdf`
-      );
+      await generarPDFSuspension({
+        suspension: final,
+        nombreArchivo: `${final.folio}-suspension.pdf`,
+      });
 
+      setVista("historial");
       alert("PDF generado y suspensión guardada.");
     } catch (error) {
       console.error("Error generando PDF:", error);
@@ -501,12 +536,13 @@ function Suspensiones() {
 
   const renderEditorFotos = (grupo, titulo) => {
     const fotos = seleccionada?.[grupo] || [];
+    const estaCerrada = !esSuspensionActiva(seleccionada);
 
     return (
       <section className="form-section">
         <h3>{titulo}</h3>
 
-        {seleccionada.estado !== "cerrada" && (
+        {!estaCerrada && (
           <label className="sus-upload">
             + Agregar fotos
             <input
@@ -529,7 +565,7 @@ function Suspensiones() {
 
               <textarea
                 placeholder="Nota de la foto..."
-                disabled={seleccionada.estado === "cerrada"}
+                disabled={estaCerrada}
                 value={foto.description || ""}
                 onChange={(e) =>
                   actualizarDescripcionFotoSuspension(
@@ -540,7 +576,7 @@ function Suspensiones() {
                 }
               />
 
-              {seleccionada.estado !== "cerrada" && (
+              {!estaCerrada && (
                 <div className="sus-photo-actions">
                   <button
                     type="button"
@@ -556,6 +592,7 @@ function Suspensiones() {
 
                   <button
                     type="button"
+                    className="cancel-service-button"
                     onClick={() => eliminarFotoSuspension(grupo, foto.id)}
                   >
                     Eliminar
@@ -586,49 +623,88 @@ function Suspensiones() {
         />
       </div>
 
+      <div className="sus-tabs">
+        <button
+          type="button"
+          className={vista === "activas" ? "active" : ""}
+          onClick={() => setVista("activas")}
+        >
+          Activas
+        </button>
+
+        <button
+          type="button"
+          className={vista === "historial" ? "active" : ""}
+          onClick={() => setVista("historial")}
+        >
+          Historial
+        </button>
+      </div>
+
       {cargando && <div className="empty-state">Cargando suspensiones...</div>}
 
-      {!cargando && (
+      {!cargando && listaVisible.length > 0 && (
         <div className="sus-grid">
-          {suspensionesActivas.map((item) => (
-            <article className="sus-card" key={item.id}>
-              <div className="sus-card-top">
-                <span>{item.folio}</span>
-                <strong>Abierta</strong>
-              </div>
+          {listaVisible.map((item) => {
+            const estado = normalizarEstado(item.estado);
+            const esActiva = esSuspensionActiva(item);
 
-              <h3>{item.cliente}</h3>
-              <p>
-                {item.marca} {item.modelo}
-              </p>
-              <p className="sus-small">
-                {item.fechaCreacion} · {item.tipoSuspension}
-              </p>
+            return (
+              <article className="sus-card" key={item.id}>
+                <div className="sus-card-top">
+                  <span>{item.folio}</span>
+                  <strong className={`sus-status ${estado}`}>
+                    {item.estado || "abierta"}
+                  </strong>
+                </div>
 
-              <div className="sus-card-total">
-                ${totalSuspension(item).toFixed(2)}
-              </div>
+                <h3>{item.cliente}</h3>
+                <p>
+                  {item.marca} {item.modelo}
+                </p>
+                <p className="sus-small">
+                  {item.fechaCreacion} · {item.tipoSuspension}
+                </p>
 
-              <div className="sus-card-actions">
-                <button type="button" onClick={() => setSeleccionada(item)}>
-                  Abrir
-                </button>
+                <div className="sus-card-total">
+                  ${totalSuspension(item).toFixed(2)}
+                </div>
 
-                <button
-                  type="button"
-                  className="cancel-service-button"
-                  onClick={() => cancelarSuspension(item)}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </article>
-          ))}
+                <div className="sus-card-actions">
+                  <button type="button" onClick={() => setSeleccionada(item)}>
+                    Abrir
+                  </button>
+
+                  {esActiva ? (
+                    <button
+                      type="button"
+                      className="cancel-service-button"
+                      onClick={() => cancelarSuspension(item)}
+                    >
+                      Cancelar
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="reopen-button"
+                      onClick={() => reabrirSuspension(item)}
+                    >
+                      Reabrir
+                    </button>
+                  )}
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
 
-      {!cargando && suspensionesActivas.length === 0 && (
-        <div className="empty-state">No hay suspensiones activas.</div>
+      {!cargando && listaVisible.length === 0 && (
+        <div className="empty-state">
+          {vista === "activas"
+            ? "No hay suspensiones activas."
+            : "No hay suspensiones en historial."}
+        </div>
       )}
 
       <button className="floating-action" onClick={() => setModalOpen(true)}>
@@ -662,7 +738,7 @@ function Suspensiones() {
               </button>
             </div>
 
-            {seleccionada.estado !== "cerrada" && (
+            {esSuspensionActiva(seleccionada) && (
               <>
                 <section className="form-section">
                   <h3>Editar recepción</h3>
@@ -826,6 +902,7 @@ function Suspensiones() {
 
                         <button
                           type="button"
+                          className="cancel-service-button"
                           onClick={() => eliminarConcepto(item.id)}
                         >
                           ×
@@ -870,13 +947,20 @@ function Suspensiones() {
               </>
             )}
 
+            {!esSuspensionActiva(seleccionada) && (
+              <div className="empty-state">
+                Esta suspensión está en historial. Puedes descargar su PDF o
+                reabrirla desde la tarjeta del historial.
+              </div>
+            )}
+
             <SuspensionReceipt
               suspension={seleccionada}
               receiptRef={receiptRef}
             />
 
             <div className="sus-actions">
-              {seleccionada.estado !== "cerrada" && (
+              {esSuspensionActiva(seleccionada) && (
                 <>
                   <button className="secondary-button" onClick={guardarAvance}>
                     Guardar
@@ -896,6 +980,15 @@ function Suspensiones() {
                     Cancelar suspensión
                   </button>
                 </>
+              )}
+
+              {!esSuspensionActiva(seleccionada) && (
+                <button
+                  className="reopen-button"
+                  onClick={() => reabrirSuspension(seleccionada)}
+                >
+                  Reabrir suspensión
+                </button>
               )}
 
               <button className="primary-button" onClick={descargarPDF}>
