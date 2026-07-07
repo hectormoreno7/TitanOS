@@ -13,7 +13,9 @@ import {
 
 const STORAGE_KEY = "titanos_suspensiones_v2";
 const ER_KEY = "titanos_recoleccion_entrega_v8";
+
 const COLLECTION = "suspensiones";
+const ER_COLLECTION = "recoleccionEntrega";
 
 function cargarSuspensionesLocales() {
   try {
@@ -24,7 +26,11 @@ function cargarSuspensionesLocales() {
 }
 
 function guardarSuspensionesLocales(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    console.warn("No se pudieron guardar suspensiones en localStorage.");
+  }
 }
 
 function cargarEntregas() {
@@ -36,7 +42,11 @@ function cargarEntregas() {
 }
 
 function guardarEntregas(data) {
-  localStorage.setItem(ER_KEY, JSON.stringify(data));
+  try {
+    localStorage.setItem(ER_KEY, JSON.stringify(data));
+  } catch {
+    console.warn("No se pudieron guardar entregas en localStorage.");
+  }
 }
 
 function generarFolio(consecutivo) {
@@ -77,7 +87,7 @@ function normalizarEstado(estado) {
 }
 
 function esSuspensionActiva(item) {
-  const estado = normalizarEstado(item.estado);
+  const estado = normalizarEstado(item?.estado);
 
   return ![
     "cerrada",
@@ -86,7 +96,19 @@ function esSuspensionActiva(item) {
     "finalizado",
     "cancelada",
     "cancelado",
+    "historial",
   ].includes(estado);
+}
+
+function uniqueByFirebaseId(items) {
+  const map = new Map();
+
+  items.forEach((item) => {
+    const key = item.firebaseId || item.id || item.folio;
+    if (!map.has(key)) map.set(key, item);
+  });
+
+  return Array.from(map.values());
 }
 
 function Suspensiones() {
@@ -114,10 +136,11 @@ function Suspensiones() {
 
       try {
         const firebaseSuspensiones = await getTenantItems(COLLECTION, tenantId);
+        const unicas = uniqueByFirebaseId(firebaseSuspensiones);
 
-        if (firebaseSuspensiones.length > 0) {
-          setSuspensiones(firebaseSuspensiones);
-          guardarSuspensionesLocales(firebaseSuspensiones);
+        if (unicas.length > 0) {
+          setSuspensiones(unicas);
+          guardarSuspensionesLocales(unicas);
         } else {
           const locales = cargarSuspensionesLocales();
 
@@ -207,7 +230,12 @@ function Suspensiones() {
 
   const actualizarLocal = (actualizada) => {
     setSuspensiones((prev) =>
-      prev.map((item) => (item.id === actualizada.id ? actualizada : item))
+      prev.map((item) =>
+        String(item.firebaseId || item.id) ===
+        String(actualizada.firebaseId || actualizada.id)
+          ? actualizada
+          : item
+      )
     );
 
     setSeleccionada(actualizada);
@@ -269,6 +297,121 @@ function Suspensiones() {
     }
   };
 
+  const crearEntregaDomicilio = async (suspensionBase) => {
+    if (!suspensionBase.entregaDomicilio) {
+      return {
+        movimientoId: suspensionBase.recoleccionEntregaId || "",
+        movimientoFirebaseId: suspensionBase.recoleccionEntregaFirebaseId || "",
+      };
+    }
+
+    const movimientosFirebase = await getTenantItems(ER_COLLECTION, tenantId);
+    const entregasLocales = cargarEntregas();
+
+    const nombreSuspension = `${suspensionBase.marca || ""} ${
+      suspensionBase.modelo || ""
+    }`.trim();
+
+    const movimientoExistente =
+      movimientosFirebase.find(
+        (item) =>
+          item.firebaseId === suspensionBase.recoleccionEntregaFirebaseId
+      ) ||
+      movimientosFirebase.find(
+        (item) =>
+          String(item.suspensionId || "") === String(suspensionBase.id || "")
+      ) ||
+      null;
+
+    const movimientoBase = {
+      id: movimientoExistente?.id || Date.now(),
+      folio:
+        movimientoExistente?.folio ||
+        generarFolioEntrega(movimientosFirebase.length + 1),
+
+      modo: "programada",
+      tipo: "Entrega",
+      estado: "programada",
+      fase: "simple",
+
+      tipoItem: "suspension",
+      origen: "suspension",
+      suspensionId: suspensionBase.id,
+      suspensionFirebaseId: suspensionBase.firebaseId || "",
+      suspension: nombreSuspension,
+      itemNombre: nombreSuspension,
+
+      clienteId: suspensionBase.clienteId || "",
+      bicicletaId: "",
+
+      cliente: suspensionBase.cliente || "",
+      telefono: suspensionBase.telefono || "",
+      bicicleta: "",
+      direccion: suspensionBase.direccion || "",
+      googleMaps: suspensionBase.googleMaps || "",
+
+      fechaProgramada: suspensionBase.fechaEntregaDomicilio || "",
+      horaProgramada: "",
+
+      observaciones: `Entrega a domicilio vinculada a suspensión ${suspensionBase.folio}`,
+      observacionesEntrega: "",
+
+      fotosRecoleccion: movimientoExistente?.fotosRecoleccion || {
+        lateral1: "",
+        lateral2: "",
+      },
+      fotosEntrega: movimientoExistente?.fotosEntrega || {
+        lateral1: "",
+        lateral2: "",
+      },
+
+      firmaRecoleccion: movimientoExistente?.firmaRecoleccion || "",
+      firmaEntrega: movimientoExistente?.firmaEntrega || "",
+
+      fechaCreacion: movimientoExistente?.fechaCreacion || fechaActual(),
+      horaCreacion: movimientoExistente?.horaCreacion || horaActual(),
+    };
+
+    let movimientoFinal = movimientoBase;
+
+    if (movimientoExistente?.firebaseId) {
+      await updateTenantItem(
+        ER_COLLECTION,
+        movimientoExistente.firebaseId,
+        movimientoBase,
+        tenantId
+      );
+
+      movimientoFinal = {
+        ...movimientoBase,
+        firebaseId: movimientoExistente.firebaseId,
+      };
+    } else {
+      const ref = await addTenantItem(ER_COLLECTION, movimientoBase, tenantId);
+
+      movimientoFinal = {
+        ...movimientoBase,
+        firebaseId: ref.id,
+      };
+    }
+
+    const localesActualizados = [
+      movimientoFinal,
+      ...entregasLocales.filter(
+        (item) =>
+          String(item.id) !== String(movimientoFinal.id) &&
+          String(item.suspensionId || "") !== String(suspensionBase.id || "")
+      ),
+    ];
+
+    guardarEntregas(localesActualizados);
+
+    return {
+      movimientoId: movimientoFinal.id,
+      movimientoFirebaseId: movimientoFinal.firebaseId,
+    };
+  };
+
   const cancelarSuspension = async (item) => {
     const confirmar = window.confirm("¿Cancelar esta suspensión?");
     if (!confirmar) return;
@@ -320,9 +463,17 @@ function Suspensiones() {
 
   const guardarAvance = async () => {
     try {
+      const entrega = await crearEntregaDomicilio(seleccionada);
+
       await guardarEnFirebase({
         ...seleccionada,
         estado: seleccionada.estado || "abierta",
+        recoleccionEntregaId:
+          entrega.movimientoId || seleccionada.recoleccionEntregaId || "",
+        recoleccionEntregaFirebaseId:
+          entrega.movimientoFirebaseId ||
+          seleccionada.recoleccionEntregaFirebaseId ||
+          "",
         fechaUltimaEdicion: fechaActual(),
         horaUltimaEdicion: horaActual(),
         total: totalSuspension(seleccionada),
@@ -448,73 +599,20 @@ function Suspensiones() {
     setFotoEditando(null);
   };
 
-  const crearEntregaDomicilio = () => {
-    if (!seleccionada.entregaDomicilio) return "";
-    if (seleccionada.recoleccionEntregaId) {
-      return seleccionada.recoleccionEntregaId;
-    }
-
-    const entregas = cargarEntregas();
-
-    const nombreSuspension = `${seleccionada.marca || ""} ${
-      seleccionada.modelo || ""
-    }`.trim();
-
-    const nuevaEntrega = {
-      id: Date.now(),
-      folio: generarFolioEntrega(entregas.length + 1),
-
-      modo: "programada",
-      tipo: "Entrega",
-      estado: "programada",
-      fase: "simple",
-
-      tipoItem: "suspension",
-      origen: "suspension",
-      suspensionId: seleccionada.id,
-      suspension: nombreSuspension,
-      itemNombre: nombreSuspension,
-
-      clienteId: seleccionada.clienteId || "",
-      bicicletaId: "",
-
-      cliente: seleccionada.cliente || "",
-      telefono: seleccionada.telefono || "",
-      bicicleta: "",
-      direccion: "",
-      googleMaps: "",
-
-      fechaProgramada: seleccionada.fechaEntregaDomicilio || "",
-      horaProgramada: "",
-
-      observaciones: `Entrega a domicilio vinculada a suspensión ${seleccionada.folio}`,
-      observacionesEntrega: "",
-
-      fotosRecoleccion: { lateral1: "", lateral2: "" },
-      fotosEntrega: { lateral1: "", lateral2: "" },
-
-      firmaRecoleccion: "",
-      firmaEntrega: "",
-
-      fechaCreacion: fechaActual(),
-      horaCreacion: horaActual(),
-    };
-
-    guardarEntregas([nuevaEntrega, ...entregas]);
-
-    return nuevaEntrega.id;
-  };
-
   const descargarPDF = async () => {
     try {
-      const entregaId = crearEntregaDomicilio();
+      const entrega = await crearEntregaDomicilio(seleccionada);
 
       const actualizada = {
         ...seleccionada,
         estado: "cerrada",
         total: totalSuspension(seleccionada),
         recoleccionEntregaId:
-          entregaId || seleccionada.recoleccionEntregaId || "",
+          entrega.movimientoId || seleccionada.recoleccionEntregaId || "",
+        recoleccionEntregaFirebaseId:
+          entrega.movimientoFirebaseId ||
+          seleccionada.recoleccionEntregaFirebaseId ||
+          "",
         fechaCierre: fechaActual(),
         horaCierre: horaActual(),
       };
@@ -650,7 +748,10 @@ function Suspensiones() {
             const esActiva = esSuspensionActiva(item);
 
             return (
-              <article className="sus-card" key={item.id}>
+              <article
+                className="sus-card"
+                key={item.firebaseId || item.id || item.folio}
+              >
                 <div className="sus-card-top">
                   <span>{item.folio}</span>
                   <strong className={`sus-status ${estado}`}>

@@ -113,7 +113,12 @@ async function addImageContain(pdf, src, x, y, w, h, options = {}) {
       pdf.roundedRect(x, y, w, h, 2, 2, "S");
     }
 
-    pdf.addImage(dataUrl, "JPEG", drawX, drawY, drawW, drawH);
+    const imageFormat =
+  options.tipo === "png" || dataUrl.startsWith("data:image/png")
+    ? "PNG"
+    : "JPEG";
+
+pdf.addImage(dataUrl, imageFormat, drawX, drawY, drawW, drawH);
   } catch (error) {
     pdf.setFillColor(...background);
     pdf.roundedRect(x, y, w, h, 2, 2, "F");
