@@ -1380,3 +1380,77 @@ select option {
   height: auto !important;
   object-fit: contain !important;
 }
+.preview-photo-card img,
+.receipt-photo-grid img,
+.evidence-card img,
+.compact-receipt-photos img {
+  width: 100%;
+  height: 180px;
+  max-height: 180px;
+  object-fit: contain;
+  background: #f3f4f6;
+  border-radius: 10px;
+}
+
+.pdf-export-mode .preview-photo-card img,
+.pdf-export-mode .receipt-photo-grid img,
+.pdf-export-mode .compact-receipt-photos img {
+  height: 150px !important;
+  max-height: 150px !important;
+  object-fit: contain !important;
+  background: #f3f4f6 !important;
+}
+.hidden-pdf-preview {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 794px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.hidden-pdf-preview .service-preview {
+  width: 794px;
+  max-width: 794px;
+}
+
+.preview-photo-card img,
+.preview-photo-grid img,
+.receipt-photo-grid img,
+.compact-photos img,
+.compact-receipt-photos img {
+  width: 100%;
+  height: auto !important;
+  max-height: 190px;
+  object-fit: contain !important;
+  display: block;
+  background: #f3f4f6;
+  border-radius: 10px;
+}
+.canvas-wrap canvas {
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.image-editor-modal {
+  max-width: 980px;
+}
+
+.preview-photo-card img,
+.preview-photo-grid img,
+.receipt-photo-grid img,
+.compact-photos img,
+.compact-receipt-photos img,
+.evidence-card img {
+  width: 100%;
+  height: auto !important;
+  object-fit: contain !important;
+  background: #f3f4f6;
+  border-radius: 10px;
+}
+
+.pdf-export-mode img {
+  object-fit: contain !important;
+  background: #f3f4f6 !important;
+}

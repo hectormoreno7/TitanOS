@@ -140,10 +140,10 @@ function PreviewSection({
         <section className="preview-block two-columns">
           <div>
             <h3>Mediciones y consumibles</h3>
-            <p><b>Rotor delantero:</b> {mediciones.rotorDelantero || "Sin registro"} mm</p>
-            <p><b>Rotor trasero:</b> {mediciones.rotorTrasero || "Sin registro"} mm</p>
-            <p><b>Balatas delanteras:</b> {mediciones.balatasDelanteras || "Sin registro"} %</p>
-            <p><b>Balatas traseras:</b> {mediciones.balatasTraseras || "Sin registro"} %</p>
+            <p><b>Rotor delantero:</b> {mediciones.rotorDelantero || "Sin registro"}</p>
+            <p><b>Rotor trasero:</b> {mediciones.rotorTrasero || "Sin registro"}</p>
+            <p><b>Balatas delanteras:</b> {mediciones.balatasDelanteras || "Sin registro"}</p>
+            <p><b>Balatas traseras:</b> {mediciones.balatasTraseras || "Sin registro"}</p>
             <p><b>Cadena:</b> {mediciones.cadena || "Sin registro"}</p>
             <p><b>Lubricante:</b> {mediciones.lubricanteCadena || "Sin registro"}</p>
           </div>

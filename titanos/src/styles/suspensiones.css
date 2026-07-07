@@ -477,3 +477,60 @@ button:active,
   transform: scale(0.98);
   opacity: 0.85;
 }
+.sus-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.sus-card-actions button {
+  flex: 1;
+  min-height: 38px;
+}
+
+button,
+.primary-button,
+.secondary-button,
+.cancel-service-button {
+  transition: transform 0.15s ease, filter 0.15s ease, opacity 0.15s ease,
+    background 0.15s ease;
+}
+
+button:hover,
+.primary-button:hover,
+.secondary-button:hover,
+.cancel-service-button:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+button:active,
+.primary-button:active,
+.secondary-button:active,
+.cancel-service-button:active {
+  transform: scale(0.98);
+  opacity: 0.85;
+}
+.sus-photo-grid img,
+.sus-live-photo-card img {
+  width: 100%;
+  height: 180px;
+  max-height: 180px;
+  object-fit: contain;
+  background: #f3f4f6;
+  border-radius: 10px;
+}
+
+.pdf-export-mode .sus-photo-grid img,
+.pdf-export-mode .sus-live-photo-card img {
+  height: 150px !important;
+  max-height: 150px !important;
+  object-fit: contain !important;
+  background: #f3f4f6 !important;
+}
+
+.sus-photo-grid > div,
+.preview-photo-card {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}

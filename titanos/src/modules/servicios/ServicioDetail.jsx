@@ -369,16 +369,21 @@ function ServicioDetail({ servicio, onClose, onUpdate }) {
     }));
   };
 
-  const descargarPDF = async () => {
-    const actualizado = construirServicioActualizado();
-    setFormData(actualizado);
-    onUpdate(actualizado);
+const descargarPDF = async () => {
+  const actualizado = construirServicioActualizado();
 
-    await generarPDFDesdeElemento(
-      previewRef.current,
-      `${formData.folio || "servicio"}-hoja-servicio.pdf`
-    );
-  };
+  setFormData(actualizado);
+  await onUpdate(actualizado);
+
+  await new Promise((resolve) => setTimeout(resolve, 300));
+
+  await generarPDFDesdeElemento(
+    previewRef.current,
+    `${actualizado.folio || "servicio"}-hoja-servicio.pdf`
+  );
+
+  alert("PDF generado y servicio guardado.");
+};
 
   return (
     <div className="modal-backdrop">
@@ -688,7 +693,7 @@ function ServicioDetail({ servicio, onClose, onUpdate }) {
               <label>
                 Rotor delantero (mm)
                 <input
-                  type="number"
+                  type="text"
                   value={mediciones.rotorDelantero}
                   disabled={servicioFinalizado}
                   onChange={(e) =>
@@ -703,7 +708,7 @@ function ServicioDetail({ servicio, onClose, onUpdate }) {
               <label>
                 Rotor trasero (mm)
                 <input
-                  type="number"
+                  type="text"
                   value={mediciones.rotorTrasero}
                   disabled={servicioFinalizado}
                   onChange={(e) =>
@@ -718,7 +723,7 @@ function ServicioDetail({ servicio, onClose, onUpdate }) {
               <label>
                 Balatas delanteras (%)
                 <input
-                  type="number"
+                  type="text"
                   value={mediciones.balatasDelanteras}
                   disabled={servicioFinalizado}
                   onChange={(e) =>
@@ -733,7 +738,7 @@ function ServicioDetail({ servicio, onClose, onUpdate }) {
               <label>
                 Balatas traseras (%)
                 <input
-                  type="number"
+                  type="text"
                   value={mediciones.balatasTraseras}
                   disabled={servicioFinalizado}
                   onChange={(e) =>
@@ -833,7 +838,7 @@ function ServicioDetail({ servicio, onClose, onUpdate }) {
                 />
 
                 <input
-                  type="number"
+                  type="text"
                   placeholder="Cantidad"
                   value={nuevoConcepto.cantidad}
                   onChange={(event) =>
@@ -946,18 +951,33 @@ function ServicioDetail({ servicio, onClose, onUpdate }) {
             </div>
           </section>
 
-          {mostrarPreview && (
-            <PreviewSection
-              previewRef={previewRef}
-              formData={formData}
-              evidencias={evidencias}
-              checklist={checklist}
-              grasas={grasas}
-              mediciones={mediciones}
-              observacionesFinales={observacionesFinales}
-              totalServicio={totalServicio}
-            />
-          )}
+<>
+  <div className="hidden-pdf-preview">
+    <PreviewSection
+      previewRef={previewRef}
+      formData={formData}
+      evidencias={evidencias}
+      checklist={checklist}
+      grasas={grasas}
+      mediciones={mediciones}
+      observacionesFinales={observacionesFinales}
+      totalServicio={totalServicio}
+    />
+  </div>
+
+  {mostrarPreview && (
+    <PreviewSection
+      previewRef={null}
+      formData={formData}
+      evidencias={evidencias}
+      checklist={checklist}
+      grasas={grasas}
+      mediciones={mediciones}
+      observacionesFinales={observacionesFinales}
+      totalServicio={totalServicio}
+    />
+  )}
+</>
         </div>
       </div>
 
