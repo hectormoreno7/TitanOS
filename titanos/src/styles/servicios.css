@@ -1454,3 +1454,28 @@ select option {
   object-fit: contain !important;
   background: #f3f4f6 !important;
 }
+.image-editor-modal {
+  position: relative;
+  z-index: 10050;
+}
+
+.modal-backdrop:has(.image-editor-modal) {
+  z-index: 10040;
+}
+.preview-doc-logo {
+  width: auto !important;
+  height: 58px !important;
+  max-width: 210px !important;
+  object-fit: contain !important;
+}
+
+.preview-doc-header {
+  align-items: center;
+}
+
+.pdf-export-mode .preview-doc-logo {
+  width: auto !important;
+  height: 58px !important;
+  max-width: 210px !important;
+  object-fit: contain !important;
+}
