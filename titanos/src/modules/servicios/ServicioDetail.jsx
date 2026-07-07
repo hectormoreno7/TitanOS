@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import ImageAnnotatorModal from "./ImageAnnotatorModal";
 import PreviewSection from "./PreviewSection";
-import { generarPDFDesdeElemento } from "./pdfGenerator";
+import { generarPDFServicio } from "./pdfGenerator";
 
 const ER_KEY = "titanos_recoleccion_entrega_v8";
 
@@ -375,12 +375,18 @@ const descargarPDF = async () => {
   setFormData(actualizado);
   await onUpdate(actualizado);
 
-  await new Promise((resolve) => setTimeout(resolve, 300));
-
-  await generarPDFDesdeElemento(
-    previewRef.current,
-    `${actualizado.folio || "servicio"}-hoja-servicio.pdf`
-  );
+  await generarPDFServicio({
+    formData: actualizado,
+    evidencias,
+    checklist,
+    grasas,
+    mediciones,
+    observacionesFinales,
+    firmaCliente: actualizado.firmaCliente || "",
+    firmaTaller: actualizado.firmaTaller || "",
+    totalServicio,
+    nombreArchivo: `${actualizado.folio || "servicio"}-hoja-servicio.pdf`,
+  });
 
   alert("PDF generado y servicio guardado.");
 };
