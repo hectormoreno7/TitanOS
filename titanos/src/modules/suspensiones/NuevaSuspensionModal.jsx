@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { crearOActualizarClienteDesdeModulo } from "../../utils/clientSync";
-
+import { comprimirArchivoImagen } from "../../utils/suspensionImageFirestore";
 
 const CLIENTS_KEY = "titanos_clientes_v1";
+const MAX_FOTOS_POR_GRUPO = 6;
 
 function cargarClientes() {
   try {
@@ -25,15 +26,28 @@ function horaActual() {
 }
 
 function crearNombreBicicleta(bike) {
-  return `${bike.marca || ""} ${bike.modelo || ""} ${bike.color || ""}`.trim();
+  return `${bike.marca || ""} ${bike.modelo || ""} ${
+    bike.color || ""
+  }`.trim();
+}
+
+function crearIdFoto() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function NuevaSuspensionModal({ onClose, onCreate }) {
   const clientes = useMemo(() => cargarClientes(), []);
   const { tenantId } = useAuth();
+
   const [clienteId, setClienteId] = useState("");
   const [bicicletaId, setBicicletaId] = useState("");
   const [vieneConBicicleta, setVieneConBicicleta] = useState(false);
+  const [procesandoFotos, setProcesandoFotos] = useState(false);
+  const [creando, setCreando] = useState(false);
 
   const [data, setData] = useState({
     cliente: "",
@@ -70,18 +84,27 @@ function NuevaSuspensionModal({ onClose, onCreate }) {
     fotosDanos: [],
   });
 
-  const clienteActual = clientes.find((c) => String(c.id) === String(clienteId));
+  const clienteActual = clientes.find(
+    (cliente) => String(cliente.id) === String(clienteId)
+  );
+
   const bicicletasCliente = clienteActual?.bicicletas || [];
 
   const actualizar = (campo, valor) => {
-    setData((prev) => ({ ...prev, [campo]: valor }));
+    setData((prev) => ({
+      ...prev,
+      [campo]: valor,
+    }));
   };
 
   const seleccionarCliente = (id) => {
     setClienteId(id);
     setBicicletaId("");
 
-    const cliente = clientes.find((item) => String(item.id) === String(id));
+    const cliente = clientes.find(
+      (item) => String(item.id) === String(id)
+    );
+
     if (!cliente) return;
 
     setData((prev) => ({
@@ -99,7 +122,10 @@ function NuevaSuspensionModal({ onClose, onCreate }) {
   const seleccionarBicicleta = (id) => {
     setBicicletaId(id);
 
-    const bike = bicicletasCliente.find((item) => String(item.id) === String(id));
+    const bike = bicicletasCliente.find(
+      (item) => String(item.id) === String(id)
+    );
+
     if (!bike) return;
 
     setData((prev) => ({
@@ -112,74 +138,82 @@ function NuevaSuspensionModal({ onClose, onCreate }) {
     }));
   };
 
-  const comprimirImagen = (archivo) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-
-      reader.onload = () => {
-        const img = new Image();
-
-        img.onload = () => {
-          const maxWidth = 900;
-          const scale = Math.min(maxWidth / img.width, 1);
-
-          const canvas = document.createElement("canvas");
-          canvas.width = img.width * scale;
-          canvas.height = img.height * scale;
-
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-          resolve(canvas.toDataURL("image/jpeg", 0.62));
-        };
-
-        img.onerror = reject;
-        img.src = reader.result;
-      };
-
-      reader.onerror = reject;
-      reader.readAsDataURL(archivo);
-    });
-  };
-
   const cargarFotos = async (grupo, archivos) => {
-    const files = Array.from(archivos || []);
+    const actuales = data[grupo] || [];
+    const disponibles = MAX_FOTOS_POR_GRUPO - actuales.length;
 
-    for (const file of files) {
-      const imagen = await comprimirImagen(file);
+    if (disponibles <= 0) {
+      alert(
+        `Sólo se permiten ${MAX_FOTOS_POR_GRUPO} fotografías en esta sección.`
+      );
+      return;
+    }
+
+    const files = Array.from(archivos || []).slice(0, disponibles);
+
+    if (files.length === 0) return;
+
+    setProcesandoFotos(true);
+
+    try {
+      const nuevas = [];
+
+      for (const archivo of files) {
+        const src = await comprimirArchivoImagen(archivo);
+
+        nuevas.push({
+          id: crearIdFoto(),
+          src,
+          originalSrc: src,
+          annotatedSrc: src,
+          description: "",
+        });
+      }
 
       setData((prev) => ({
         ...prev,
-        [grupo]: [
-          ...(prev[grupo] || []),
-          {
-            id: Date.now() + Math.random(),
-            originalSrc: imagen,
-            annotatedSrc: imagen,
-            description: "",
-          },
-        ],
+        [grupo]: [...(prev[grupo] || []), ...nuevas],
       }));
+    } catch (error) {
+      console.error("Error procesando fotografías:", error);
+      alert(
+        "No se pudo procesar una de las fotografías. Intenta agregar menos imágenes."
+      );
+    } finally {
+      setProcesandoFotos(false);
     }
   };
 
   const eliminarFoto = (grupo, id) => {
     setData((prev) => ({
       ...prev,
-      [grupo]: (prev[grupo] || []).filter((foto) => foto.id !== id),
+      [grupo]: (prev[grupo] || []).filter(
+        (foto) => String(foto.id) !== String(id)
+      ),
     }));
   };
 
-  const actualizarDescripcionFoto = (grupo, id, description) => {
+  const actualizarDescripcionFoto = (
+    grupo,
+    id,
+    description
+  ) => {
     setData((prev) => ({
       ...prev,
       [grupo]: (prev[grupo] || []).map((foto) =>
-        foto.id === id ? { ...foto, description } : foto
+        String(foto.id) === String(id)
+          ? {
+              ...foto,
+              description,
+            }
+          : foto
       ),
     }));
   };
 
   const crear = async () => {
+    if (creando || procesandoFotos) return;
+
     if (!data.cliente.trim()) {
       alert("Falta el cliente.");
       return;
@@ -189,31 +223,42 @@ function NuevaSuspensionModal({ onClose, onCreate }) {
       alert("Falta marca y modelo de la suspensión.");
       return;
     }
-    const clienteGuardado = await crearOActualizarClienteDesdeModulo({
-  tenantId,
-  clienteId,
-  nombre: data.cliente,
-  telefono: data.telefono,
-});
 
-    onCreate({
-      ...data,
-      clienteId: clienteGuardado.clienteId,
-      bicicletaId,
-      vieneConBicicleta,
-      estado: "abierta",
-      fechaCreacion: fechaActual(),
-      horaCreacion: horaActual(),
-      conceptos: [],
-      tipoMantenimiento: "",
-      insumos: "",
-      observacionesFinales: "",
-      fotosEvidencia: [],
-      firmaCliente: "",
-      entregaDomicilio: false,
-      fechaEntregaDomicilio: "",
-      recoleccionEntregaId: "",
-    });
+    setCreando(true);
+
+    try {
+      const clienteGuardado =
+        await crearOActualizarClienteDesdeModulo({
+          tenantId,
+          clienteId,
+          nombre: data.cliente,
+          telefono: data.telefono,
+        });
+
+      await onCreate({
+        ...data,
+        clienteId: clienteGuardado.clienteId,
+        bicicletaId,
+        vieneConBicicleta,
+        estado: "abierta",
+        fechaCreacion: fechaActual(),
+        horaCreacion: horaActual(),
+        conceptos: [],
+        tipoMantenimiento: "",
+        insumos: "",
+        observacionesFinales: "",
+        fotosEvidencia: [],
+        firmaCliente: "",
+        entregaDomicilio: false,
+        fechaEntregaDomicilio: "",
+        recoleccionEntregaId: "",
+      });
+    } catch (error) {
+      console.error("Error creando suspensión:", error);
+      alert("No se pudo generar la suspensión.");
+    } finally {
+      setCreando(false);
+    }
   };
 
   const renderFotos = (grupo, titulo) => (
@@ -221,29 +266,58 @@ function NuevaSuspensionModal({ onClose, onCreate }) {
       <h4>{titulo}</h4>
 
       <label className="sus-upload">
-        + Agregar fotos
+        {procesandoFotos
+          ? "Procesando fotografías..."
+          : "+ Agregar fotos"}
+
         <input
           type="file"
           accept="image/*"
           multiple
-          onChange={(e) => cargarFotos(grupo, e.target.files)}
+          disabled={procesandoFotos || creando}
+          onChange={(event) => {
+            cargarFotos(grupo, event.target.files);
+            event.target.value = "";
+          }}
         />
       </label>
 
+      <p className="form-note">
+        Máximo {MAX_FOTOS_POR_GRUPO} fotografías por sección.
+      </p>
+
       <div className="sus-live-photo-grid">
         {(data[grupo] || []).map((foto) => (
-          <article className="sus-live-photo-card" key={foto.id}>
-            <img src={foto.annotatedSrc} alt={titulo} />
+          <article
+            className="sus-live-photo-card"
+            key={foto.id}
+          >
+            <img
+              src={
+                foto.src ||
+                foto.annotatedSrc ||
+                foto.originalSrc
+              }
+              alt={titulo}
+            />
 
             <textarea
               placeholder="Nota de la foto..."
-              value={foto.description}
-              onChange={(e) =>
-                actualizarDescripcionFoto(grupo, foto.id, e.target.value)
+              value={foto.description || ""}
+              onChange={(event) =>
+                actualizarDescripcionFoto(
+                  grupo,
+                  foto.id,
+                  event.target.value
+                )
               }
             />
 
-            <button onClick={() => eliminarFoto(grupo, foto.id)}>
+            <button
+              type="button"
+              className="cancel-service-button"
+              onClick={() => eliminarFoto(grupo, foto.id)}
+            >
               Eliminar
             </button>
           </article>
@@ -261,7 +335,13 @@ function NuevaSuspensionModal({ onClose, onCreate }) {
             <p>Recepción inicial de suspensión.</p>
           </div>
 
-          <button className="modal-close" onClick={onClose}>×</button>
+          <button
+            type="button"
+            className="modal-close"
+            onClick={onClose}
+          >
+            ×
+          </button>
         </div>
 
         <section className="form-section">
@@ -270,10 +350,21 @@ function NuevaSuspensionModal({ onClose, onCreate }) {
           <div className="form-grid">
             <label>
               Cliente existente
-              <select value={clienteId} onChange={(e) => seleccionarCliente(e.target.value)}>
-                <option value="">Selecciona o escribe abajo</option>
+              <select
+                value={clienteId}
+                onChange={(event) =>
+                  seleccionarCliente(event.target.value)
+                }
+              >
+                <option value="">
+                  Selecciona o escribe abajo
+                </option>
+
                 {clientes.map((cliente) => (
-                  <option key={cliente.id} value={cliente.id}>
+                  <option
+                    key={cliente.id}
+                    value={cliente.id}
+                  >
                     {cliente.nombre} · {cliente.telefono}
                   </option>
                 ))}
@@ -282,12 +373,22 @@ function NuevaSuspensionModal({ onClose, onCreate }) {
 
             <label>
               Cliente
-              <input value={data.cliente} onChange={(e) => actualizar("cliente", e.target.value)} />
+              <input
+                value={data.cliente}
+                onChange={(event) =>
+                  actualizar("cliente", event.target.value)
+                }
+              />
             </label>
 
             <label>
               Teléfono
-              <input value={data.telefono} onChange={(e) => actualizar("telefono", e.target.value)} />
+              <input
+                value={data.telefono}
+                onChange={(event) =>
+                  actualizar("telefono", event.target.value)
+                }
+              />
             </label>
           </div>
         </section>
@@ -299,7 +400,9 @@ function NuevaSuspensionModal({ onClose, onCreate }) {
             <input
               type="checkbox"
               checked={vieneConBicicleta}
-              onChange={(e) => setVieneConBicicleta(e.target.checked)}
+              onChange={(event) =>
+                setVieneConBicicleta(event.target.checked)
+              }
             />
             Viene con bicicleta completa
           </label>
@@ -309,15 +412,27 @@ function NuevaSuspensionModal({ onClose, onCreate }) {
               <div className="form-grid">
                 <label className="full-width-field">
                   Bicicleta registrada
+
                   <select
                     value={bicicletaId}
                     disabled={!clienteId}
-                    onChange={(e) => seleccionarBicicleta(e.target.value)}
+                    onChange={(event) =>
+                      seleccionarBicicleta(
+                        event.target.value
+                      )
+                    }
                   >
-                    <option value="">Selecciona o escribe manual</option>
+                    <option value="">
+                      Selecciona o escribe manual
+                    </option>
+
                     {bicicletasCliente.map((bike) => (
-                      <option key={bike.id} value={bike.id}>
-                        {bike.marca} {bike.modelo} · {bike.color}
+                      <option
+                        key={bike.id}
+                        value={bike.id}
+                      >
+                        {bike.marca} {bike.modelo} ·{" "}
+                        {bike.color}
                       </option>
                     ))}
                   </select>
@@ -325,31 +440,74 @@ function NuevaSuspensionModal({ onClose, onCreate }) {
 
                 <label>
                   Marca
-                  <input value={data.bikeMarca} onChange={(e) => actualizar("bikeMarca", e.target.value)} />
+                  <input
+                    value={data.bikeMarca}
+                    onChange={(event) =>
+                      actualizar(
+                        "bikeMarca",
+                        event.target.value
+                      )
+                    }
+                  />
                 </label>
 
                 <label>
                   Modelo
-                  <input value={data.bikeModelo} onChange={(e) => actualizar("bikeModelo", e.target.value)} />
+                  <input
+                    value={data.bikeModelo}
+                    onChange={(event) =>
+                      actualizar(
+                        "bikeModelo",
+                        event.target.value
+                      )
+                    }
+                  />
                 </label>
 
                 <label>
                   Color
-                  <input value={data.bikeColor} onChange={(e) => actualizar("bikeColor", e.target.value)} />
+                  <input
+                    value={data.bikeColor}
+                    onChange={(event) =>
+                      actualizar(
+                        "bikeColor",
+                        event.target.value
+                      )
+                    }
+                  />
                 </label>
 
                 <label>
                   Rodada
-                  <input value={data.bikeRodada} onChange={(e) => actualizar("bikeRodada", e.target.value)} />
+                  <input
+                    value={data.bikeRodada}
+                    onChange={(event) =>
+                      actualizar(
+                        "bikeRodada",
+                        event.target.value
+                      )
+                    }
+                  />
                 </label>
 
                 <label className="full-width-field">
                   Accesorios recibidos
-                  <input value={data.accesoriosBicicleta} onChange={(e) => actualizar("accesoriosBicicleta", e.target.value)} />
+                  <input
+                    value={data.accesoriosBicicleta}
+                    onChange={(event) =>
+                      actualizar(
+                        "accesoriosBicicleta",
+                        event.target.value
+                      )
+                    }
+                  />
                 </label>
               </div>
 
-              {renderFotos("fotosBicicleta", "Fotos laterales de bicicleta")}
+              {renderFotos(
+                "fotosBicicleta",
+                "Fotos laterales de bicicleta"
+              )}
             </>
           )}
         </section>
@@ -360,7 +518,16 @@ function NuevaSuspensionModal({ onClose, onCreate }) {
           <div className="form-grid">
             <label>
               Tipo de suspensión
-              <select value={data.tipoSuspension} onChange={(e) => actualizar("tipoSuspension", e.target.value)}>
+
+              <select
+                value={data.tipoSuspension}
+                onChange={(event) =>
+                  actualizar(
+                    "tipoSuspension",
+                    event.target.value
+                  )
+                }
+              >
                 <option>Suspensión delantera</option>
                 <option>Suspensión trasera</option>
               </select>
@@ -380,12 +547,24 @@ function NuevaSuspensionModal({ onClose, onCreate }) {
               ["ejeMontura", "Eje / Tipo de montura"],
               ["rodada", "Rodada / Medida"],
               ["psiAntes", "PSI antes del servicio"],
-              ["bloqueoAntes", "¿Bloqueo funcionando antes?"],
-              ["reboteAntes", "¿Rebote funcionando antes?"],
+              [
+                "bloqueoAntes",
+                "¿Bloqueo funcionando antes?",
+              ],
+              [
+                "reboteAntes",
+                "¿Rebote funcionando antes?",
+              ],
             ].map(([campo, label]) => (
               <label key={campo}>
                 {label}
-                <input value={data[campo]} onChange={(e) => actualizar(campo, e.target.value)} />
+
+                <input
+                  value={data[campo] || ""}
+                  onChange={(event) =>
+                    actualizar(campo, event.target.value)
+                  }
+                />
               </label>
             ))}
           </div>
@@ -394,18 +573,53 @@ function NuevaSuspensionModal({ onClose, onCreate }) {
         <section className="form-section">
           <h3>Recepción visual</h3>
 
-          {renderFotos("fotosSuspensionRecepcion", "Fotos de suspensión al recibir")}
-          {renderFotos("fotosDanos", "Marcas o daños al recibir")}
+          {renderFotos(
+            "fotosSuspensionRecepcion",
+            "Fotos de suspensión al recibir"
+          )}
+
+          {renderFotos(
+            "fotosDanos",
+            "Marcas o daños al recibir"
+          )}
 
           <label className="full-label">
             Detalles antes del mantenimiento
-            <textarea value={data.detallesAntes} onChange={(e) => actualizar("detallesAntes", e.target.value)} />
+
+            <textarea
+              value={data.detallesAntes}
+              onChange={(event) =>
+                actualizar(
+                  "detallesAntes",
+                  event.target.value
+                )
+              }
+            />
           </label>
         </section>
 
         <div className="sus-actions">
-          <button className="secondary-button" onClick={onClose}>Cancelar</button>
-          <button className="primary-button" onClick={crear}>Generar suspensión</button>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={onClose}
+            disabled={procesandoFotos || creando}
+          >
+            Cancelar
+          </button>
+
+          <button
+            type="button"
+            className="primary-button"
+            onClick={crear}
+            disabled={procesandoFotos || creando}
+          >
+            {creando
+              ? "Guardando suspensión..."
+              : procesandoFotos
+              ? "Procesando fotos..."
+              : "Generar suspensión"}
+          </button>
         </div>
       </div>
     </div>

@@ -10,12 +10,40 @@ import {
   addTenantItem,
   updateTenantItem,
 } from "../../firebase/firestore";
+import {
+  actualizarFotoSuspension,
+  comprimirArchivoImagen,
+  comprimirDataUrlImagen,
+  crearFotoSuspension,
+  eliminarFotoSuspensionFirestore,
+  normalizarFotoFirestore,
+  obtenerFotosSuspensiones,
+} from "../../utils/suspensionImageFirestore";
 
 const STORAGE_KEY = "titanos_suspensiones_v2";
 const ER_KEY = "titanos_recoleccion_entrega_v8";
 
 const COLLECTION = "suspensiones";
 const ER_COLLECTION = "recoleccionEntrega";
+
+const GRUPOS_FOTOS = [
+  "fotosBicicleta",
+  "fotosSuspensionRecepcion",
+  "fotosDanos",
+  "fotosEvidencia",
+];
+
+const MAX_FOTOS_POR_GRUPO = 6;
+
+function quitarFotos(item = {}) {
+  const copia = { ...item };
+
+  GRUPOS_FOTOS.forEach((grupo) => {
+    delete copia[grupo];
+  });
+
+  return copia;
+}
 
 function cargarSuspensionesLocales() {
   try {
@@ -27,9 +55,12 @@ function cargarSuspensionesLocales() {
 
 function guardarSuspensionesLocales(data) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    const ligeras = data.map(quitarFotos);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(ligeras));
   } catch {
-    console.warn("No se pudieron guardar suspensiones en localStorage.");
+    console.warn(
+      "No se pudieron guardar suspensiones en localStorage."
+    );
   }
 }
 
@@ -45,7 +76,9 @@ function guardarEntregas(data) {
   try {
     localStorage.setItem(ER_KEY, JSON.stringify(data));
   } catch {
-    console.warn("No se pudieron guardar entregas en localStorage.");
+    console.warn(
+      "No se pudieron guardar entregas en localStorage."
+    );
   }
 }
 
@@ -54,7 +87,10 @@ function generarFolio(consecutivo) {
   const mes = String(fecha.getMonth() + 1).padStart(2, "0");
   const año = String(fecha.getFullYear()).slice(-2);
 
-  return `TBW-SUS-${mes}${año}-${String(consecutivo).padStart(5, "0")}`;
+  return `TBW-SUS-${mes}${año}-${String(consecutivo).padStart(
+    5,
+    "0"
+  )}`;
 }
 
 function generarFolioEntrega(consecutivo) {
@@ -62,7 +98,10 @@ function generarFolioEntrega(consecutivo) {
   const mes = String(fecha.getMonth() + 1).padStart(2, "0");
   const año = String(fecha.getFullYear()).slice(-2);
 
-  return `TBW-ER-${mes}${año}-${String(consecutivo).padStart(5, "0")}`;
+  return `TBW-ER-${mes}${año}-${String(consecutivo).padStart(
+    5,
+    "0"
+  )}`;
 }
 
 function fechaActual() {
@@ -77,13 +116,19 @@ function horaActual() {
 }
 
 function totalSuspension(item) {
-  return (item.conceptos || []).reduce((acc, concepto) => {
-    return acc + Number(concepto.cantidad || 0) * Number(concepto.precio || 0);
-  }, 0);
+  return (item.conceptos || []).reduce(
+    (acc, concepto) =>
+      acc +
+      Number(concepto.cantidad || 0) *
+        Number(concepto.precio || 0),
+    0
+  );
 }
 
 function normalizarEstado(estado) {
-  return String(estado || "abierta").trim().toLowerCase();
+  return String(estado || "abierta")
+    .trim()
+    .toLowerCase();
 }
 
 function esSuspensionActiva(item) {
@@ -105,10 +150,43 @@ function uniqueByFirebaseId(items) {
 
   items.forEach((item) => {
     const key = item.firebaseId || item.id || item.folio;
-    if (!map.has(key)) map.set(key, item);
+
+    if (!map.has(key)) {
+      map.set(key, item);
+    }
   });
 
   return Array.from(map.values());
+}
+
+function hidratarSuspensiones(suspensiones, fotos) {
+  return suspensiones.map((suspension) => {
+    const resultado = {
+      ...suspension,
+    };
+
+    GRUPOS_FOTOS.forEach((grupo) => {
+      const externas = fotos
+        .filter(
+          (foto) =>
+            foto.grupo === grupo &&
+            (String(foto.suspensionFirebaseId || "") ===
+              String(suspension.firebaseId || "") ||
+              String(foto.suspensionId || "") ===
+                String(suspension.id || ""))
+        )
+        .map(normalizarFotoFirestore);
+
+      const embebidas = (suspension[grupo] || []).map(
+        normalizarFotoFirestore
+      );
+
+      resultado[grupo] =
+        externas.length > 0 ? externas : embebidas;
+    });
+
+    return resultado;
+  });
 }
 
 function Suspensiones() {
@@ -119,10 +197,15 @@ function Suspensiones() {
   const [search, setSearch] = useState("");
   const [suspensiones, setSuspensiones] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [guardando, setGuardando] = useState(false);
+  const [procesandoFotos, setProcesandoFotos] =
+    useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [seleccionada, setSeleccionada] = useState(null);
+  const [seleccionada, setSeleccionada] =
+    useState(null);
   const [firmaModal, setFirmaModal] = useState(false);
-  const [fotoEditando, setFotoEditando] = useState(null);
+  const [fotoEditando, setFotoEditando] =
+    useState(null);
 
   const [nuevoConcepto, setNuevoConcepto] = useState({
     descripcion: "",
@@ -135,56 +218,40 @@ function Suspensiones() {
       setCargando(true);
 
       try {
-        const firebaseSuspensiones = await getTenantItems(COLLECTION, tenantId);
-        const unicas = uniqueByFirebaseId(firebaseSuspensiones);
+        const [firebaseSuspensiones, firebaseFotos] =
+          await Promise.all([
+            getTenantItems(COLLECTION, tenantId),
+            obtenerFotosSuspensiones(tenantId),
+          ]);
 
-        if (unicas.length > 0) {
-          setSuspensiones(unicas);
-          guardarSuspensionesLocales(unicas);
-        } else {
-          const locales = cargarSuspensionesLocales();
+        const unicas = uniqueByFirebaseId(
+          firebaseSuspensiones
+        );
 
-          if (locales.length > 0) {
-            const migradas = [];
+        const hidratadas = hidratarSuspensiones(
+          unicas,
+          firebaseFotos
+        );
 
-            for (const suspension of locales) {
-              const ref = await addTenantItem(
-                COLLECTION,
-                {
-                  ...suspension,
-                  estado: suspension.estado || "abierta",
-                  conceptos: suspension.conceptos || [],
-                  fotosBicicleta: suspension.fotosBicicleta || [],
-                  fotosSuspensionRecepcion:
-                    suspension.fotosSuspensionRecepcion || [],
-                  fotosDanos: suspension.fotosDanos || [],
-                  fotosEvidencia: suspension.fotosEvidencia || [],
-                },
-                tenantId
-              );
-
-              migradas.push({
-                ...suspension,
-                firebaseId: ref.id,
-                estado: suspension.estado || "abierta",
-                conceptos: suspension.conceptos || [],
-                fotosBicicleta: suspension.fotosBicicleta || [],
-                fotosSuspensionRecepcion:
-                  suspension.fotosSuspensionRecepcion || [],
-                fotosDanos: suspension.fotosDanos || [],
-                fotosEvidencia: suspension.fotosEvidencia || [],
-              });
-            }
-
-            setSuspensiones(migradas);
-            guardarSuspensionesLocales(migradas);
-          } else {
-            setSuspensiones([]);
-          }
-        }
+        setSuspensiones(hidratadas);
+        guardarSuspensionesLocales(hidratadas);
       } catch (error) {
-        console.error("Error cargando suspensiones:", error);
-        setSuspensiones(cargarSuspensionesLocales());
+        console.error(
+          "Error cargando suspensiones:",
+          error
+        );
+
+        const locales = cargarSuspensionesLocales();
+
+        setSuspensiones(
+          locales.map((item) => ({
+            ...item,
+            fotosBicicleta: [],
+            fotosSuspensionRecepcion: [],
+            fotosDanos: [],
+            fotosEvidencia: [],
+          }))
+        );
       } finally {
         setCargando(false);
       }
@@ -217,22 +284,31 @@ function Suspensiones() {
     });
   }, [search, suspensiones]);
 
-  const suspensionesActivas = useMemo(() => {
-    return filtradas.filter(esSuspensionActiva);
-  }, [filtradas]);
+  const suspensionesActivas = useMemo(
+    () => filtradas.filter(esSuspensionActiva),
+    [filtradas]
+  );
 
-  const suspensionesHistorial = useMemo(() => {
-    return filtradas.filter((item) => !esSuspensionActiva(item));
-  }, [filtradas]);
+  const suspensionesHistorial = useMemo(
+    () =>
+      filtradas.filter(
+        (item) => !esSuspensionActiva(item)
+      ),
+    [filtradas]
+  );
 
   const listaVisible =
-    vista === "activas" ? suspensionesActivas : suspensionesHistorial;
+    vista === "activas"
+      ? suspensionesActivas
+      : suspensionesHistorial;
 
   const actualizarLocal = (actualizada) => {
     setSuspensiones((prev) =>
       prev.map((item) =>
         String(item.firebaseId || item.id) ===
-        String(actualizada.firebaseId || actualizada.id)
+        String(
+          actualizada.firebaseId || actualizada.id
+        )
           ? actualizada
           : item
       )
@@ -243,16 +319,21 @@ function Suspensiones() {
 
   const guardarEnFirebase = async (suspension) => {
     let final = suspension;
+    const dataSinFotos = quitarFotos(suspension);
 
     if (suspension.firebaseId) {
       await updateTenantItem(
         COLLECTION,
         suspension.firebaseId,
-        suspension,
+        dataSinFotos,
         tenantId
       );
     } else {
-      const ref = await addTenantItem(COLLECTION, suspension, tenantId);
+      const ref = await addTenantItem(
+        COLLECTION,
+        dataSinFotos,
+        tenantId
+      );
 
       final = {
         ...suspension,
@@ -264,62 +345,164 @@ function Suspensiones() {
     return final;
   };
 
+  const guardarFotosIniciales = async (
+    suspension,
+    data
+  ) => {
+    const resultado = {};
+
+    for (const grupo of GRUPOS_FOTOS) {
+      resultado[grupo] = [];
+
+      for (const foto of data[grupo] || []) {
+        const src =
+          foto.src ||
+          foto.annotatedSrc ||
+          foto.originalSrc;
+
+        if (!src) continue;
+
+        const guardada = await crearFotoSuspension({
+          tenantId,
+          suspensionFirebaseId:
+            suspension.firebaseId,
+          suspensionId: suspension.id,
+          grupo,
+          src,
+          description: foto.description || "",
+          id: foto.id,
+        });
+
+        resultado[grupo].push(guardada);
+      }
+    }
+
+    return resultado;
+  };
+
   const crear = async (data) => {
-    const nueva = {
-      id: Date.now(),
-      folio: generarFolio(suspensiones.length + 1),
-      ...data,
-      estado: data.estado || "abierta",
-      conceptos: data.conceptos || [],
-      fotosBicicleta: data.fotosBicicleta || [],
-      fotosSuspensionRecepcion: data.fotosSuspensionRecepcion || [],
-      fotosDanos: data.fotosDanos || [],
-      fotosEvidencia: data.fotosEvidencia || [],
-    };
+    setGuardando(true);
 
     try {
-      const ref = await addTenantItem(COLLECTION, nueva, tenantId);
+      const nueva = {
+        id: Date.now(),
+        folio: generarFolio(
+          suspensiones.length + 1
+        ),
+        ...quitarFotos(data),
+        estado: data.estado || "abierta",
+        conceptos: data.conceptos || [],
+      };
 
-      const final = {
+      const ref = await addTenantItem(
+        COLLECTION,
+        nueva,
+        tenantId
+      );
+
+      const base = {
         ...nueva,
         firebaseId: ref.id,
       };
 
-      const actualizadas = [final, ...suspensiones];
+      const fotos = await guardarFotosIniciales(
+        base,
+        data
+      );
+
+      const final = {
+        ...base,
+        ...fotos,
+      };
+
+      const actualizadas = [
+        final,
+        ...suspensiones,
+      ];
 
       setSuspensiones(actualizadas);
       guardarSuspensionesLocales(actualizadas);
       setSeleccionada(final);
       setModalOpen(false);
     } catch (error) {
-      console.error("Error creando suspensión:", error);
-      alert("No se pudo guardar la suspensión en Firebase.");
+      console.error(
+        "Error creando suspensión:",
+        error
+      );
+
+      alert(
+        "No se pudo guardar la suspensión. Intenta usar menos fotografías."
+      );
+    } finally {
+      setGuardando(false);
     }
   };
 
-  const crearEntregaDomicilio = async (suspensionBase) => {
+  const sincronizarFotos = async (suspension) => {
+    const actualizada = {
+      ...suspension,
+    };
+
+    for (const grupo of GRUPOS_FOTOS) {
+      const guardadas = [];
+
+      for (const foto of suspension[grupo] || []) {
+        const normalizada =
+          await actualizarFotoSuspension({
+            tenantId,
+            foto,
+            suspensionFirebaseId:
+              suspension.firebaseId,
+            suspensionId: suspension.id,
+            grupo,
+          });
+
+        guardadas.push(normalizada);
+      }
+
+      actualizada[grupo] = guardadas;
+    }
+
+    actualizarLocal(actualizada);
+    return actualizada;
+  };
+
+  const crearEntregaDomicilio = async (
+    suspensionBase
+  ) => {
     if (!suspensionBase.entregaDomicilio) {
       return {
-        movimientoId: suspensionBase.recoleccionEntregaId || "",
-        movimientoFirebaseId: suspensionBase.recoleccionEntregaFirebaseId || "",
+        movimientoId:
+          suspensionBase.recoleccionEntregaId || "",
+        movimientoFirebaseId:
+          suspensionBase
+            .recoleccionEntregaFirebaseId || "",
       };
     }
 
-    const movimientosFirebase = await getTenantItems(ER_COLLECTION, tenantId);
+    const movimientosFirebase =
+      await getTenantItems(
+        ER_COLLECTION,
+        tenantId
+      );
+
     const entregasLocales = cargarEntregas();
 
-    const nombreSuspension = `${suspensionBase.marca || ""} ${
-      suspensionBase.modelo || ""
-    }`.trim();
+    const nombreSuspension = `${
+      suspensionBase.marca || ""
+    } ${suspensionBase.modelo || ""}`.trim();
 
     const movimientoExistente =
       movimientosFirebase.find(
         (item) =>
-          item.firebaseId === suspensionBase.recoleccionEntregaFirebaseId
+          item.firebaseId ===
+          suspensionBase
+            .recoleccionEntregaFirebaseId
       ) ||
       movimientosFirebase.find(
         (item) =>
-          String(item.suspensionId || "") === String(suspensionBase.id || "")
+          String(item.suspensionId || "") ===
+          String(suspensionBase.id || "")
       ) ||
       null;
 
@@ -327,7 +510,9 @@ function Suspensiones() {
       id: movimientoExistente?.id || Date.now(),
       folio:
         movimientoExistente?.folio ||
-        generarFolioEntrega(movimientosFirebase.length + 1),
+        generarFolioEntrega(
+          movimientosFirebase.length + 1
+        ),
 
       modo: "programada",
       tipo: "Entrega",
@@ -337,39 +522,56 @@ function Suspensiones() {
       tipoItem: "suspension",
       origen: "suspension",
       suspensionId: suspensionBase.id,
-      suspensionFirebaseId: suspensionBase.firebaseId || "",
+      suspensionFirebaseId:
+        suspensionBase.firebaseId || "",
       suspension: nombreSuspension,
       itemNombre: nombreSuspension,
 
-      clienteId: suspensionBase.clienteId || "",
+      clienteId:
+        suspensionBase.clienteId || "",
       bicicletaId: "",
 
       cliente: suspensionBase.cliente || "",
       telefono: suspensionBase.telefono || "",
       bicicleta: "",
       direccion: suspensionBase.direccion || "",
-      googleMaps: suspensionBase.googleMaps || "",
+      googleMaps:
+        suspensionBase.googleMaps || "",
 
-      fechaProgramada: suspensionBase.fechaEntregaDomicilio || "",
+      fechaProgramada:
+        suspensionBase
+          .fechaEntregaDomicilio || "",
       horaProgramada: "",
 
       observaciones: `Entrega a domicilio vinculada a suspensión ${suspensionBase.folio}`,
       observacionesEntrega: "",
 
-      fotosRecoleccion: movimientoExistente?.fotosRecoleccion || {
-        lateral1: "",
-        lateral2: "",
-      },
-      fotosEntrega: movimientoExistente?.fotosEntrega || {
-        lateral1: "",
-        lateral2: "",
-      },
+      fotosRecoleccion:
+        movimientoExistente?.fotosRecoleccion || {
+          lateral1: "",
+          lateral2: "",
+        },
 
-      firmaRecoleccion: movimientoExistente?.firmaRecoleccion || "",
-      firmaEntrega: movimientoExistente?.firmaEntrega || "",
+      fotosEntrega:
+        movimientoExistente?.fotosEntrega || {
+          lateral1: "",
+          lateral2: "",
+        },
 
-      fechaCreacion: movimientoExistente?.fechaCreacion || fechaActual(),
-      horaCreacion: movimientoExistente?.horaCreacion || horaActual(),
+      firmaRecoleccion:
+        movimientoExistente?.firmaRecoleccion ||
+        "",
+
+      firmaEntrega:
+        movimientoExistente?.firmaEntrega || "",
+
+      fechaCreacion:
+        movimientoExistente?.fechaCreacion ||
+        fechaActual(),
+
+      horaCreacion:
+        movimientoExistente?.horaCreacion ||
+        horaActual(),
     };
 
     let movimientoFinal = movimientoBase;
@@ -384,10 +586,15 @@ function Suspensiones() {
 
       movimientoFinal = {
         ...movimientoBase,
-        firebaseId: movimientoExistente.firebaseId,
+        firebaseId:
+          movimientoExistente.firebaseId,
       };
     } else {
-      const ref = await addTenantItem(ER_COLLECTION, movimientoBase, tenantId);
+      const ref = await addTenantItem(
+        ER_COLLECTION,
+        movimientoBase,
+        tenantId
+      );
 
       movimientoFinal = {
         ...movimientoBase,
@@ -399,8 +606,10 @@ function Suspensiones() {
       movimientoFinal,
       ...entregasLocales.filter(
         (item) =>
-          String(item.id) !== String(movimientoFinal.id) &&
-          String(item.suspensionId || "") !== String(suspensionBase.id || "")
+          String(item.id) !==
+            String(movimientoFinal.id) &&
+          String(item.suspensionId || "") !==
+            String(suspensionBase.id || "")
       ),
     ];
 
@@ -408,12 +617,16 @@ function Suspensiones() {
 
     return {
       movimientoId: movimientoFinal.id,
-      movimientoFirebaseId: movimientoFinal.firebaseId,
+      movimientoFirebaseId:
+        movimientoFinal.firebaseId,
     };
   };
 
   const cancelarSuspension = async (item) => {
-    const confirmar = window.confirm("¿Cancelar esta suspensión?");
+    const confirmar = window.confirm(
+      "¿Cancelar esta suspensión?"
+    );
+
     if (!confirmar) return;
 
     try {
@@ -428,29 +641,45 @@ function Suspensiones() {
       setVista("historial");
       alert("Suspensión cancelada.");
     } catch (error) {
-      console.error("Error cancelando suspensión:", error);
-      alert("No se pudo cancelar la suspensión.");
+      console.error(
+        "Error cancelando suspensión:",
+        error
+      );
+
+      alert(
+        "No se pudo cancelar la suspensión."
+      );
     }
   };
 
   const reabrirSuspension = async (item) => {
-    const confirmar = window.confirm("¿Reabrir esta suspensión?");
+    const confirmar = window.confirm(
+      "¿Reabrir esta suspensión?"
+    );
+
     if (!confirmar) return;
 
     try {
-      const actualizada = await guardarEnFirebase({
-        ...item,
-        estado: "abierta",
-        fechaReapertura: fechaActual(),
-        horaReapertura: horaActual(),
-      });
+      const actualizada =
+        await guardarEnFirebase({
+          ...item,
+          estado: "abierta",
+          fechaReapertura: fechaActual(),
+          horaReapertura: horaActual(),
+        });
 
       setSeleccionada(actualizada);
       setVista("activas");
       alert("Suspensión reabierta.");
     } catch (error) {
-      console.error("Error reabriendo suspensión:", error);
-      alert("No se pudo reabrir la suspensión.");
+      console.error(
+        "Error reabriendo suspensión:",
+        error
+      );
+
+      alert(
+        "No se pudo reabrir la suspensión."
+      );
     }
   };
 
@@ -462,27 +691,46 @@ function Suspensiones() {
   };
 
   const guardarAvance = async () => {
+    if (guardando || procesandoFotos) return;
+
+    setGuardando(true);
+
     try {
-      const entrega = await crearEntregaDomicilio(seleccionada);
+      const conFotos =
+        await sincronizarFotos(seleccionada);
+
+      const entrega =
+        await crearEntregaDomicilio(conFotos);
 
       await guardarEnFirebase({
-        ...seleccionada,
-        estado: seleccionada.estado || "abierta",
+        ...conFotos,
+        estado: conFotos.estado || "abierta",
         recoleccionEntregaId:
-          entrega.movimientoId || seleccionada.recoleccionEntregaId || "",
+          entrega.movimientoId ||
+          conFotos.recoleccionEntregaId ||
+          "",
         recoleccionEntregaFirebaseId:
           entrega.movimientoFirebaseId ||
-          seleccionada.recoleccionEntregaFirebaseId ||
+          conFotos
+            .recoleccionEntregaFirebaseId ||
           "",
         fechaUltimaEdicion: fechaActual(),
         horaUltimaEdicion: horaActual(),
-        total: totalSuspension(seleccionada),
+        total: totalSuspension(conFotos),
       });
 
       alert("Avance guardado.");
     } catch (error) {
-      console.error("Error guardando suspensión:", error);
-      alert("No se pudo guardar en Firebase.");
+      console.error(
+        "Error guardando suspensión:",
+        error
+      );
+
+      alert(
+        "No se pudo guardar la suspensión."
+      );
+    } finally {
+      setGuardando(false);
     }
   };
 
@@ -498,9 +746,14 @@ function Suspensiones() {
         ...(seleccionada.conceptos || []),
         {
           id: Date.now(),
-          descripcion: nuevoConcepto.descripcion,
-          cantidad: Number(nuevoConcepto.cantidad || 1),
-          precio: Number(nuevoConcepto.precio || 0),
+          descripcion:
+            nuevoConcepto.descripcion,
+          cantidad: Number(
+            nuevoConcepto.cantidad || 1
+          ),
+          precio: Number(
+            nuevoConcepto.precio || 0
+          ),
         },
       ],
     });
@@ -515,109 +768,224 @@ function Suspensiones() {
   const eliminarConcepto = (id) => {
     actualizarLocal({
       ...seleccionada,
-      conceptos: (seleccionada.conceptos || []).filter(
-        (item) => item.id !== id
-      ),
+      conceptos: (
+        seleccionada.conceptos || []
+      ).filter((item) => item.id !== id),
     });
   };
 
-  const comprimirImagen = (archivo) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
+  const cargarFotosSuspension = async (
+    grupo,
+    archivos
+  ) => {
+    const actuales =
+      seleccionada?.[grupo] || [];
 
-      reader.onload = () => {
-        const img = new Image();
+    const disponibles =
+      MAX_FOTOS_POR_GRUPO - actuales.length;
 
-        img.onload = () => {
-          const maxWidth = 900;
-          const scale = Math.min(maxWidth / img.width, 1);
-
-          const canvas = document.createElement("canvas");
-          canvas.width = img.width * scale;
-          canvas.height = img.height * scale;
-
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-          resolve(canvas.toDataURL("image/jpeg", 0.72));
-        };
-
-        img.onerror = reject;
-        img.src = reader.result;
-      };
-
-      reader.onerror = reject;
-      reader.readAsDataURL(archivo);
-    });
-  };
-
-  const cargarFotosSuspension = async (grupo, archivos) => {
-    const files = Array.from(archivos || []);
-    const nuevas = [];
-
-    for (const file of files) {
-      const imagen = await comprimirImagen(file);
-
-      nuevas.push({
-        id: Date.now() + Math.random(),
-        originalSrc: imagen,
-        annotatedSrc: imagen,
-        description: "",
-      });
+    if (disponibles <= 0) {
+      alert(
+        `Sólo se permiten ${MAX_FOTOS_POR_GRUPO} fotografías en esta sección.`
+      );
+      return;
     }
 
-    actualizarLocal({
-      ...seleccionada,
-      [grupo]: [...(seleccionada[grupo] || []), ...nuevas],
-    });
+    const files = Array.from(
+      archivos || []
+    ).slice(0, disponibles);
+
+    if (files.length === 0) return;
+
+    setProcesandoFotos(true);
+
+    try {
+      const nuevas = [];
+
+      for (const archivo of files) {
+        const src =
+          await comprimirArchivoImagen(archivo);
+
+        const guardada =
+          await crearFotoSuspension({
+            tenantId,
+            suspensionFirebaseId:
+              seleccionada.firebaseId,
+            suspensionId: seleccionada.id,
+            grupo,
+            src,
+            description: "",
+          });
+
+        nuevas.push(guardada);
+      }
+
+      actualizarLocal({
+        ...seleccionada,
+        [grupo]: [...actuales, ...nuevas],
+      });
+    } catch (error) {
+      console.error(
+        "Error cargando fotografías:",
+        error
+      );
+
+      alert(
+        "No se pudieron agregar las fotografías. Intenta seleccionar menos imágenes."
+      );
+    } finally {
+      setProcesandoFotos(false);
+    }
   };
 
-  const eliminarFotoSuspension = (grupo, id) => {
-    actualizarLocal({
-      ...seleccionada,
-      [grupo]: (seleccionada[grupo] || []).filter((foto) => foto.id !== id),
-    });
+  const eliminarFotoSuspension = async (
+    grupo,
+    id
+  ) => {
+    const foto = (
+      seleccionada[grupo] || []
+    ).find(
+      (item) => String(item.id) === String(id)
+    );
+
+    try {
+      if (foto?.firebaseId) {
+        await eliminarFotoSuspensionFirestore({
+          tenantId,
+          firebaseId: foto.firebaseId,
+        });
+      }
+
+      actualizarLocal({
+        ...seleccionada,
+        [grupo]: (
+          seleccionada[grupo] || []
+        ).filter(
+          (item) =>
+            String(item.id) !== String(id)
+        ),
+      });
+    } catch (error) {
+      console.error(
+        "Error eliminando fotografía:",
+        error
+      );
+
+      alert(
+        "No se pudo eliminar la fotografía."
+      );
+    }
   };
 
-  const actualizarDescripcionFotoSuspension = (grupo, id, description) => {
+  const actualizarDescripcionFotoSuspension = (
+    grupo,
+    id,
+    description
+  ) => {
     actualizarLocal({
       ...seleccionada,
-      [grupo]: (seleccionada[grupo] || []).map((foto) =>
-        foto.id === id ? { ...foto, description } : foto
+      [grupo]: (
+        seleccionada[grupo] || []
+      ).map((foto) =>
+        String(foto.id) === String(id)
+          ? {
+              ...foto,
+              description,
+            }
+          : foto
       ),
     });
   };
 
-  const guardarFotoEditadaSuspension = (fotoActualizada) => {
-    actualizarLocal({
-      ...seleccionada,
-      [fotoActualizada.grupo]: (seleccionada[fotoActualizada.grupo] || []).map(
-        (foto) => (foto.id === fotoActualizada.id ? fotoActualizada : foto)
-      ),
-    });
+  const guardarFotoEditadaSuspension = async (
+    fotoActualizada
+  ) => {
+    setProcesandoFotos(true);
 
-    setFotoEditando(null);
+    try {
+      const grupo = fotoActualizada.grupo;
+
+      const srcOriginal =
+        fotoActualizada.annotatedSrc ||
+        fotoActualizada.src ||
+        fotoActualizada.originalSrc;
+
+      const src =
+        await comprimirDataUrlImagen(srcOriginal);
+
+      const guardada =
+        await actualizarFotoSuspension({
+          tenantId,
+          foto: {
+            ...fotoActualizada,
+            src,
+            originalSrc: src,
+            annotatedSrc: src,
+          },
+          suspensionFirebaseId:
+            seleccionada.firebaseId,
+          suspensionId: seleccionada.id,
+          grupo,
+        });
+
+      actualizarLocal({
+        ...seleccionada,
+        [grupo]: (
+          seleccionada[grupo] || []
+        ).map((foto) =>
+          String(foto.id) ===
+          String(guardada.id)
+            ? guardada
+            : foto
+        ),
+      });
+
+      setFotoEditando(null);
+    } catch (error) {
+      console.error(
+        "Error guardando anotación:",
+        error
+      );
+
+      alert(
+        "No se pudo guardar la anotación."
+      );
+    } finally {
+      setProcesandoFotos(false);
+    }
   };
 
   const descargarPDF = async () => {
+    if (guardando || procesandoFotos) return;
+
+    setGuardando(true);
+
     try {
-      const entrega = await crearEntregaDomicilio(seleccionada);
+      const conFotos =
+        await sincronizarFotos(seleccionada);
+
+      const entrega =
+        await crearEntregaDomicilio(conFotos);
 
       const actualizada = {
-        ...seleccionada,
+        ...conFotos,
         estado: "cerrada",
-        total: totalSuspension(seleccionada),
+        total: totalSuspension(conFotos),
         recoleccionEntregaId:
-          entrega.movimientoId || seleccionada.recoleccionEntregaId || "",
+          entrega.movimientoId ||
+          conFotos.recoleccionEntregaId ||
+          "",
         recoleccionEntregaFirebaseId:
           entrega.movimientoFirebaseId ||
-          seleccionada.recoleccionEntregaFirebaseId ||
+          conFotos
+            .recoleccionEntregaFirebaseId ||
           "",
         fechaCierre: fechaActual(),
         horaCierre: horaActual(),
       };
 
-      const final = await guardarEnFirebase(actualizada);
+      const final =
+        await guardarEnFirebase(actualizada);
 
       await generarPDFSuspension({
         suspension: final,
@@ -625,51 +993,100 @@ function Suspensiones() {
       });
 
       setVista("historial");
-      alert("PDF generado y suspensión guardada.");
+
+      alert(
+        "PDF generado y suspensión guardada."
+      );
     } catch (error) {
-      console.error("Error generando PDF:", error);
-      alert("No se pudo generar o guardar la suspensión.");
+      console.error(
+        "Error generando PDF:",
+        error
+      );
+
+      alert(
+        "No se pudo generar o guardar la suspensión."
+      );
+    } finally {
+      setGuardando(false);
     }
   };
 
-  const renderEditorFotos = (grupo, titulo) => {
+  const renderEditorFotos = (
+    grupo,
+    titulo
+  ) => {
     const fotos = seleccionada?.[grupo] || [];
-    const estaCerrada = !esSuspensionActiva(seleccionada);
+    const estaCerrada =
+      !esSuspensionActiva(seleccionada);
 
     return (
       <section className="form-section">
         <h3>{titulo}</h3>
 
         {!estaCerrada && (
-          <label className="sus-upload">
-            + Agregar fotos
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={(e) => cargarFotosSuspension(grupo, e.target.files)}
-            />
-          </label>
+          <>
+            <label className="sus-upload">
+              {procesandoFotos
+                ? "Procesando fotografías..."
+                : "+ Agregar fotos"}
+
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                disabled={
+                  procesandoFotos || guardando
+                }
+                onChange={(event) => {
+                  cargarFotosSuspension(
+                    grupo,
+                    event.target.files
+                  );
+
+                  event.target.value = "";
+                }}
+              />
+            </label>
+
+            <p className="form-note">
+              Máximo {MAX_FOTOS_POR_GRUPO} fotografías.
+            </p>
+          </>
         )}
 
         {fotos.length === 0 && (
-          <p className="form-note">No hay fotos registradas.</p>
+          <p className="form-note">
+            No hay fotos registradas.
+          </p>
         )}
 
         <div className="sus-live-photo-grid">
           {fotos.map((foto) => (
-            <article className="sus-live-photo-card" key={foto.id}>
-              <img src={foto.annotatedSrc || foto.originalSrc} alt={titulo} />
+            <article
+              className="sus-live-photo-card"
+              key={
+                foto.firebaseId ||
+                foto.id
+              }
+            >
+              <img
+                src={
+                  foto.src ||
+                  foto.annotatedSrc ||
+                  foto.originalSrc
+                }
+                alt={titulo}
+              />
 
               <textarea
                 placeholder="Nota de la foto..."
                 disabled={estaCerrada}
                 value={foto.description || ""}
-                onChange={(e) =>
+                onChange={(event) =>
                   actualizarDescripcionFotoSuspension(
                     grupo,
                     foto.id,
-                    e.target.value
+                    event.target.value
                   )
                 }
               />
@@ -678,6 +1095,10 @@ function Suspensiones() {
                 <div className="sus-photo-actions">
                   <button
                     type="button"
+                    disabled={
+                      procesandoFotos ||
+                      guardando
+                    }
                     onClick={() =>
                       setFotoEditando({
                         ...foto,
@@ -691,7 +1112,16 @@ function Suspensiones() {
                   <button
                     type="button"
                     className="cancel-service-button"
-                    onClick={() => eliminarFotoSuspension(grupo, foto.id)}
+                    disabled={
+                      procesandoFotos ||
+                      guardando
+                    }
+                    onClick={() =>
+                      eliminarFotoSuspension(
+                        grupo,
+                        foto.id
+                      )
+                    }
                   >
                     Eliminar
                   </button>
@@ -709,7 +1139,9 @@ function Suspensiones() {
       <div className="module-header">
         <div>
           <h2>Suspensiones</h2>
-          <p>Recepción, servicio, evidencia, costos y PDF.</p>
+          <p>
+            Recepción, servicio, evidencia, costos y PDF.
+          </p>
         </div>
       </div>
 
@@ -717,14 +1149,18 @@ function Suspensiones() {
         <input
           value={search}
           placeholder="Buscar por cliente, folio, marca, modelo o serie..."
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(event) =>
+            setSearch(event.target.value)
+          }
         />
       </div>
 
       <div className="sus-tabs">
         <button
           type="button"
-          className={vista === "activas" ? "active" : ""}
+          className={
+            vista === "activas" ? "active" : ""
+          }
           onClick={() => setVista("activas")}
         >
           Activas
@@ -732,83 +1168,122 @@ function Suspensiones() {
 
         <button
           type="button"
-          className={vista === "historial" ? "active" : ""}
+          className={
+            vista === "historial"
+              ? "active"
+              : ""
+          }
           onClick={() => setVista("historial")}
         >
           Historial
         </button>
       </div>
 
-      {cargando && <div className="empty-state">Cargando suspensiones...</div>}
-
-      {!cargando && listaVisible.length > 0 && (
-        <div className="sus-grid">
-          {listaVisible.map((item) => {
-            const estado = normalizarEstado(item.estado);
-            const esActiva = esSuspensionActiva(item);
-
-            return (
-              <article
-                className="sus-card"
-                key={item.firebaseId || item.id || item.folio}
-              >
-                <div className="sus-card-top">
-                  <span>{item.folio}</span>
-                  <strong className={`sus-status ${estado}`}>
-                    {item.estado || "abierta"}
-                  </strong>
-                </div>
-
-                <h3>{item.cliente}</h3>
-                <p>
-                  {item.marca} {item.modelo}
-                </p>
-                <p className="sus-small">
-                  {item.fechaCreacion} · {item.tipoSuspension}
-                </p>
-
-                <div className="sus-card-total">
-                  ${totalSuspension(item).toFixed(2)}
-                </div>
-
-                <div className="sus-card-actions">
-                  <button type="button" onClick={() => setSeleccionada(item)}>
-                    Abrir
-                  </button>
-
-                  {esActiva ? (
-                    <button
-                      type="button"
-                      className="cancel-service-button"
-                      onClick={() => cancelarSuspension(item)}
-                    >
-                      Cancelar
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="reopen-button"
-                      onClick={() => reabrirSuspension(item)}
-                    >
-                      Reabrir
-                    </button>
-                  )}
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
-
-      {!cargando && listaVisible.length === 0 && (
+      {cargando && (
         <div className="empty-state">
-          {vista === "activas"
-            ? "No hay suspensiones activas."
-            : "No hay suspensiones en historial."}
+          Cargando suspensiones...
         </div>
       )}
 
-      <button className="floating-action" onClick={() => setModalOpen(true)}>
+      {!cargando &&
+        listaVisible.length > 0 && (
+          <div className="sus-grid">
+            {listaVisible.map((item) => {
+              const estado = normalizarEstado(
+                item.estado
+              );
+
+              const esActiva =
+                esSuspensionActiva(item);
+
+              return (
+                <article
+                  className="sus-card"
+                  key={
+                    item.firebaseId ||
+                    item.id ||
+                    item.folio
+                  }
+                >
+                  <div className="sus-card-top">
+                    <span>{item.folio}</span>
+
+                    <strong
+                      className={`sus-status ${estado}`}
+                    >
+                      {item.estado || "abierta"}
+                    </strong>
+                  </div>
+
+                  <h3>{item.cliente}</h3>
+
+                  <p>
+                    {item.marca} {item.modelo}
+                  </p>
+
+                  <p className="sus-small">
+                    {item.fechaCreacion} ·{" "}
+                    {item.tipoSuspension}
+                  </p>
+
+                  <div className="sus-card-total">
+                    $
+                    {totalSuspension(
+                      item
+                    ).toFixed(2)}
+                  </div>
+
+                  <div className="sus-card-actions">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSeleccionada(item)
+                      }
+                    >
+                      Abrir
+                    </button>
+
+                    {esActiva ? (
+                      <button
+                        type="button"
+                        className="cancel-service-button"
+                        onClick={() =>
+                          cancelarSuspension(item)
+                        }
+                      >
+                        Cancelar
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="reopen-button"
+                        onClick={() =>
+                          reabrirSuspension(item)
+                        }
+                      >
+                        Reabrir
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+
+      {!cargando &&
+        listaVisible.length === 0 && (
+          <div className="empty-state">
+            {vista === "activas"
+              ? "No hay suspensiones activas."
+              : "No hay suspensiones en historial."}
+          </div>
+        )}
+
+      <button
+        className="floating-action"
+        onClick={() => setModalOpen(true)}
+      >
         +
       </button>
 
@@ -825,21 +1300,28 @@ function Suspensiones() {
             <div className="modal-header">
               <div>
                 <h2>{seleccionada.folio}</h2>
+
                 <p>
-                  {seleccionada.cliente} · {seleccionada.marca}{" "}
+                  {seleccionada.cliente} ·{" "}
+                  {seleccionada.marca}{" "}
                   {seleccionada.modelo}
                 </p>
               </div>
 
               <button
+                type="button"
                 className="modal-close"
-                onClick={() => setSeleccionada(null)}
+                onClick={() =>
+                  setSeleccionada(null)
+                }
               >
                 ×
               </button>
             </div>
 
-            {esSuspensionActiva(seleccionada) && (
+            {esSuspensionActiva(
+              seleccionada
+            ) && (
               <>
                 <section className="form-section">
                   <h3>Editar recepción</h3>
@@ -848,8 +1330,14 @@ function Suspensiones() {
                     {[
                       ["cliente", "Cliente"],
                       ["telefono", "Teléfono"],
-                      ["marca", "Marca suspensión"],
-                      ["modelo", "Modelo suspensión"],
+                      [
+                        "marca",
+                        "Marca suspensión",
+                      ],
+                      [
+                        "modelo",
+                        "Modelo suspensión",
+                      ],
                       ["numeroSerie", "Serie"],
                       ["identificador", "ID"],
                       ["color", "Color"],
@@ -858,30 +1346,63 @@ function Suspensiones() {
                       ["bloqueo", "Bloqueo"],
                       ["rebote", "Rebote"],
                       ["tubo", "Tubo"],
-                      ["ejeMontura", "Eje / montura"],
-                      ["rodada", "Rodada / medida"],
-                      ["psiAntes", "PSI antes"],
-                      ["bloqueoAntes", "Bloqueo funcionando antes"],
-                      ["reboteAntes", "Rebote funcionando antes"],
-                    ].map(([campo, label]) => (
-                      <label key={campo}>
-                        {label}
-                        <input
-                          value={seleccionada[campo] || ""}
-                          onChange={(e) =>
-                            actualizarCampo(campo, e.target.value)
-                          }
-                        />
-                      </label>
-                    ))}
+                      [
+                        "ejeMontura",
+                        "Eje / montura",
+                      ],
+                      [
+                        "rodada",
+                        "Rodada / medida",
+                      ],
+                      [
+                        "psiAntes",
+                        "PSI antes",
+                      ],
+                      [
+                        "bloqueoAntes",
+                        "Bloqueo funcionando antes",
+                      ],
+                      [
+                        "reboteAntes",
+                        "Rebote funcionando antes",
+                      ],
+                    ].map(
+                      ([campo, label]) => (
+                        <label key={campo}>
+                          {label}
+
+                          <input
+                            value={
+                              seleccionada[
+                                campo
+                              ] || ""
+                            }
+                            onChange={(event) =>
+                              actualizarCampo(
+                                campo,
+                                event.target
+                                  .value
+                              )
+                            }
+                          />
+                        </label>
+                      )
+                    )}
                   </div>
 
                   <label className="full-label">
                     Detalles antes del mantenimiento
+
                     <textarea
-                      value={seleccionada.detallesAntes || ""}
-                      onChange={(e) =>
-                        actualizarCampo("detallesAntes", e.target.value)
+                      value={
+                        seleccionada.detallesAntes ||
+                        ""
+                      }
+                      onChange={(event) =>
+                        actualizarCampo(
+                          "detallesAntes",
+                          event.target.value
+                        )
                       }
                     />
                   </label>
@@ -898,37 +1419,63 @@ function Suspensiones() {
                   "Fotos de suspensión al recibir"
                 )}
 
-                {renderEditorFotos("fotosDanos", "Marcas o daños al recibir")}
+                {renderEditorFotos(
+                  "fotosDanos",
+                  "Marcas o daños al recibir"
+                )}
 
                 <section className="form-section">
-                  <h3>Servicio de suspensión</h3>
+                  <h3>
+                    Servicio de suspensión
+                  </h3>
 
                   <label className="full-label">
                     Tipo de mantenimiento
+
                     <textarea
-                      value={seleccionada.tipoMantenimiento || ""}
-                      onChange={(e) =>
-                        actualizarCampo("tipoMantenimiento", e.target.value)
+                      value={
+                        seleccionada.tipoMantenimiento ||
+                        ""
+                      }
+                      onChange={(event) =>
+                        actualizarCampo(
+                          "tipoMantenimiento",
+                          event.target.value
+                        )
                       }
                     />
                   </label>
 
                   <label className="full-label">
                     Insumos y kits utilizados
+
                     <textarea
-                      value={seleccionada.insumos || ""}
-                      onChange={(e) =>
-                        actualizarCampo("insumos", e.target.value)
+                      value={
+                        seleccionada.insumos ||
+                        ""
+                      }
+                      onChange={(event) =>
+                        actualizarCampo(
+                          "insumos",
+                          event.target.value
+                        )
                       }
                     />
                   </label>
 
                   <label className="full-label">
                     Observaciones después del mantenimiento
+
                     <textarea
-                      value={seleccionada.observacionesFinales || ""}
-                      onChange={(e) =>
-                        actualizarCampo("observacionesFinales", e.target.value)
+                      value={
+                        seleccionada.observacionesFinales ||
+                        ""
+                      }
+                      onChange={(event) =>
+                        actualizarCampo(
+                          "observacionesFinales",
+                          event.target.value
+                        )
                       }
                     />
                   </label>
@@ -945,11 +1492,14 @@ function Suspensiones() {
                   <div className="sus-concept-form">
                     <input
                       placeholder="Concepto"
-                      value={nuevoConcepto.descripcion}
-                      onChange={(e) =>
+                      value={
+                        nuevoConcepto.descripcion
+                      }
+                      onChange={(event) =>
                         setNuevoConcepto({
                           ...nuevoConcepto,
-                          descripcion: e.target.value,
+                          descripcion:
+                            event.target.value,
                         })
                       }
                     />
@@ -957,11 +1507,14 @@ function Suspensiones() {
                     <input
                       type="number"
                       placeholder="Cantidad"
-                      value={nuevoConcepto.cantidad}
-                      onChange={(e) =>
+                      value={
+                        nuevoConcepto.cantidad
+                      }
+                      onChange={(event) =>
                         setNuevoConcepto({
                           ...nuevoConcepto,
-                          cantidad: e.target.value,
+                          cantidad:
+                            event.target.value,
                         })
                       }
                     />
@@ -969,11 +1522,14 @@ function Suspensiones() {
                     <input
                       type="number"
                       placeholder="Precio"
-                      value={nuevoConcepto.precio}
-                      onChange={(e) =>
+                      value={
+                        nuevoConcepto.precio
+                      }
+                      onChange={(event) =>
                         setNuevoConcepto({
                           ...nuevoConcepto,
-                          precio: e.target.value,
+                          precio:
+                            event.target.value,
                         })
                       }
                     />
@@ -988,23 +1544,50 @@ function Suspensiones() {
                   </div>
 
                   <div className="sus-inline-concepts">
-                    {(seleccionada.conceptos || []).map((item) => (
-                      <div className="sus-inline-concept-row" key={item.id}>
-                        <span>{item.descripcion}</span>
-                        <span>{item.cantidad}</span>
-                        <span>${Number(item.precio || 0).toFixed(2)}</span>
+                    {(
+                      seleccionada.conceptos ||
+                      []
+                    ).map((item) => (
+                      <div
+                        className="sus-inline-concept-row"
+                        key={item.id}
+                      >
+                        <span>
+                          {item.descripcion}
+                        </span>
+
+                        <span>
+                          {item.cantidad}
+                        </span>
+
+                        <span>
+                          $
+                          {Number(
+                            item.precio || 0
+                          ).toFixed(2)}
+                        </span>
+
                         <strong>
                           $
                           {(
-                            Number(item.cantidad || 0) *
-                            Number(item.precio || 0)
+                            Number(
+                              item.cantidad ||
+                                0
+                            ) *
+                            Number(
+                              item.precio || 0
+                            )
                           ).toFixed(2)}
                         </strong>
 
                         <button
                           type="button"
                           className="cancel-service-button"
-                          onClick={() => eliminarConcepto(item.id)}
+                          onClick={() =>
+                            eliminarConcepto(
+                              item.id
+                            )
+                          }
                         >
                           ×
                         </button>
@@ -1014,14 +1597,22 @@ function Suspensiones() {
                 </section>
 
                 <section className="form-section">
-                  <h3>Entrega a domicilio</h3>
+                  <h3>
+                    Entrega a domicilio
+                  </h3>
 
                   <label className="check-item">
                     <input
                       type="checkbox"
-                      checked={seleccionada.entregaDomicilio || false}
-                      onChange={(e) =>
-                        actualizarCampo("entregaDomicilio", e.target.checked)
+                      checked={
+                        seleccionada.entregaDomicilio ||
+                        false
+                      }
+                      onChange={(event) =>
+                        actualizarCampo(
+                          "entregaDomicilio",
+                          event.target.checked
+                        )
                       }
                     />
                     Vincular con entrega a domicilio
@@ -1031,13 +1622,17 @@ function Suspensiones() {
                     <div className="form-grid">
                       <label>
                         Fecha opcional
+
                         <input
                           type="date"
-                          value={seleccionada.fechaEntregaDomicilio || ""}
-                          onChange={(e) =>
+                          value={
+                            seleccionada.fechaEntregaDomicilio ||
+                            ""
+                          }
+                          onChange={(event) =>
                             actualizarCampo(
                               "fechaEntregaDomicilio",
-                              e.target.value
+                              event.target.value
                             )
                           }
                         />
@@ -1048,10 +1643,13 @@ function Suspensiones() {
               </>
             )}
 
-            {!esSuspensionActiva(seleccionada) && (
+            {!esSuspensionActiva(
+              seleccionada
+            ) && (
               <div className="empty-state">
-                Esta suspensión está en historial. Puedes descargar su PDF o
-                reabrirla desde la tarjeta del historial.
+                Esta suspensión está en historial.
+                Puedes descargar su PDF o reabrirla
+                desde la tarjeta del historial.
               </div>
             )}
 
@@ -1061,39 +1659,79 @@ function Suspensiones() {
             />
 
             <div className="sus-actions">
-              {esSuspensionActiva(seleccionada) && (
+              {esSuspensionActiva(
+                seleccionada
+              ) && (
                 <>
-                  <button className="secondary-button" onClick={guardarAvance}>
-                    Guardar
+                  <button
+                    className="secondary-button"
+                    onClick={guardarAvance}
+                    disabled={
+                      guardando ||
+                      procesandoFotos
+                    }
+                  >
+                    {guardando
+                      ? "Guardando..."
+                      : "Guardar"}
                   </button>
 
                   <button
                     className="secondary-button"
-                    onClick={() => setFirmaModal(true)}
+                    disabled={
+                      guardando ||
+                      procesandoFotos
+                    }
+                    onClick={() =>
+                      setFirmaModal(true)
+                    }
                   >
                     Firma opcional
                   </button>
 
                   <button
                     className="cancel-service-button"
-                    onClick={() => cancelarSuspension(seleccionada)}
+                    disabled={
+                      guardando ||
+                      procesandoFotos
+                    }
+                    onClick={() =>
+                      cancelarSuspension(
+                        seleccionada
+                      )
+                    }
                   >
                     Cancelar suspensión
                   </button>
                 </>
               )}
 
-              {!esSuspensionActiva(seleccionada) && (
+              {!esSuspensionActiva(
+                seleccionada
+              ) && (
                 <button
                   className="reopen-button"
-                  onClick={() => reabrirSuspension(seleccionada)}
+                  onClick={() =>
+                    reabrirSuspension(
+                      seleccionada
+                    )
+                  }
                 >
                   Reabrir suspensión
                 </button>
               )}
 
-              <button className="primary-button" onClick={descargarPDF}>
-                Descargar PDF y guardar
+              <button
+                className="primary-button"
+                onClick={descargarPDF}
+                disabled={
+                  guardando ||
+                  procesandoFotos
+                }
+              >
+                {guardando
+                  ? "Generando..."
+                  : "Descargar PDF y guardar"}
               </button>
             </div>
           </div>
@@ -1101,9 +1739,15 @@ function Suspensiones() {
           {firmaModal && (
             <SignatureModal
               title="Firma del cliente"
-              onClose={() => setFirmaModal(false)}
+              onClose={() =>
+                setFirmaModal(false)
+              }
               onSave={(firma) => {
-                actualizarLocal({ ...seleccionada, firmaCliente: firma });
+                actualizarLocal({
+                  ...seleccionada,
+                  firmaCliente: firma,
+                });
+
                 setFirmaModal(false);
               }}
             />
@@ -1112,8 +1756,12 @@ function Suspensiones() {
           {fotoEditando && (
             <ImageAnnotatorModal
               image={fotoEditando}
-              onClose={() => setFotoEditando(null)}
-              onSave={guardarFotoEditadaSuspension}
+              onClose={() =>
+                setFotoEditando(null)
+              }
+              onSave={
+                guardarFotoEditadaSuspension
+              }
             />
           )}
         </div>
