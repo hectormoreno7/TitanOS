@@ -118,7 +118,8 @@ async function addImageContain(pdf, src, x, y, w, h, options = {}) {
     ? "PNG"
     : "JPEG";
 
-pdf.addImage(dataUrl, imageFormat, drawX, drawY, drawW, drawH);
+
+    pdf.addImage(dataUrl, imageFormat, drawX, drawY, drawW, drawH);
   } catch (error) {
     pdf.setFillColor(...background);
     pdf.roundedRect(x, y, w, h, 2, 2, "F");
@@ -332,7 +333,7 @@ await addImageContain(pdf, logoSrc, margin, y, 70, 28, {
     y += h + 4;
   }
 
-  async function photoGrid(title, photos = []) {
+  async function photoGrid(title, photos = [], options = {}) {
     await sectionTitle(title);
 
     if (!photos.length) {
@@ -340,16 +341,17 @@ await addImageContain(pdf, logoSrc, margin, y, 70, 28, {
       return;
     }
 
-    const gap = 5;
-    const boxW = (contentWidth - gap) / 2;
-    const boxH = 63;
-    const captionH = 11;
+    const columns = options.columns || 2;
+    const gap = options.gap || 5;
+    const boxW = (contentWidth - gap * (columns - 1)) / columns;
+    const boxH = options.boxH || 63;
+    const captionH = options.captionH || 11;
     const cardH = boxH + captionH + 5;
 
-    for (let i = 0; i < photos.length; i += 2) {
+    for (let i = 0; i < photos.length; i += columns) {
       await ensureSpace(cardH + 4);
 
-      const row = photos.slice(i, i + 2);
+      const row = photos.slice(i, i + columns);
 
       for (let index = 0; index < row.length; index++) {
         const foto = row[index];
@@ -544,7 +546,11 @@ await addImageContain(pdf, logoSrc, margin, y, 70, 28, {
   await paragraph(`Estado mecánico de ingreso: ${formData.estadoMecanico || "Sin observaciones"}`);
 
   await photoGrid("Fotos de recepción", generarListaFotosRecepcion(formData));
-  await photoGrid("Evidencias fotográficas", generarListaEvidencias(evidencias));
+  await photoGrid(
+    "Evidencias fotográficas",
+    generarListaEvidencias(evidencias),
+    { columns: 3, gap: 4, boxH: 45, captionH: 11 }
+  );
 
   await checklistSection();
 

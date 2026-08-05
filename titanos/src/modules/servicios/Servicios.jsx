@@ -51,6 +51,14 @@ function totalConceptos(conceptos = []) {
   }, 0);
 }
 
+function totalServicio(servicio = {}) {
+  if (Array.isArray(servicio.conceptos) && servicio.conceptos.length > 0) {
+    return totalConceptos(servicio.conceptos);
+  }
+
+  return Number(servicio.total || 0);
+}
+
 function uniqueByFirebaseId(items) {
   const map = new Map();
 
@@ -373,7 +381,7 @@ function Servicios() {
                 </div>
 
                 <div className="service-footer">
-                  <strong>${Number(servicio.total || 0).toFixed(2)}</strong>
+                  <strong>${totalServicio(servicio).toFixed(2)}</strong>
 
                   <button onClick={() => setServicioSeleccionado(servicio)}>
                     Ver servicio

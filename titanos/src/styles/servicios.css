@@ -1195,6 +1195,15 @@ select option {
 
 .preview-block p {
   margin: 2px 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.preview-block span,
+.preview-block strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .two-columns {
@@ -1212,6 +1221,7 @@ select option {
 
 .preview-long-text {
   margin-top: 6px !important;
+  white-space: pre-wrap;
 }
 
 .compact-photos,
