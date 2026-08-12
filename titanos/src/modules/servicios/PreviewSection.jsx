@@ -75,6 +75,7 @@ function PreviewSection({
             <p><b>Rodada:</b> {formData.rodada || "Sin registro"}</p>
             <p><b>Material:</b> {formData.material || "Sin registro"}</p>
             <p><b>Serie:</b> {formData.numeroSerie || "Sin registro"}</p>
+            <p><b>Peso:</b> {formData.peso || "Sin registro"}</p>
           </div>
         </section>
 

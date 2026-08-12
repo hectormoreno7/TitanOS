@@ -109,3 +109,69 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+.update-prompt {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  max-width: min(520px, calc(100vw - 40px));
+  padding: 16px;
+  color: #f9fafb;
+  text-align: left;
+  background: #1f1f1f;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+}
+
+.update-prompt div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.update-prompt span {
+  color: #d1d5db;
+  font-size: 14px;
+}
+
+.update-prompt-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.update-prompt button {
+  padding: 9px 12px;
+  color: #f9fafb;
+  background: transparent;
+  border: 1px solid #6b7280;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.update-prompt .update-prompt-primary {
+  color: #111827;
+  font-weight: 700;
+  background: #f97316;
+  border-color: #f97316;
+}
+
+@media (max-width: 620px) {
+  .update-prompt {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    flex-direction: column;
+    align-items: stretch;
+    max-width: none;
+  }
+
+  .update-prompt-actions {
+    justify-content: flex-end;
+  }
+}

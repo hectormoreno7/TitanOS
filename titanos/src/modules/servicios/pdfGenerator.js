@@ -533,6 +533,7 @@ await addImageContain(pdf, logoSrc, margin, y, 70, 28, {
     { label: "Rodada", value: formData.rodada },
     { label: "Material", value: formData.material },
     { label: "Serie", value: formData.numeroSerie },
+    { label: "Peso", value: formData.peso },
   ]);
 
   await sectionTitle("Recepción");

@@ -1,14 +1,32 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+import { execFileSync } from "node:child_process";
+import process from "node:process";
+
+function getBuildVersion() {
+  if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA;
+  if (process.env.VERCEL_GIT_COMMIT_SHA) return process.env.VERCEL_GIT_COMMIT_SHA;
+
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
+const buildVersion = getBuildVersion();
 
 export default defineConfig({
+  define: {
+    "import.meta.env.VITE_BUILD_VERSION": JSON.stringify(buildVersion),
+  },
   plugins: [
     react(),
 
     VitePWA({
-      registerType: "autoUpdate",
-      injectRegister: "auto",
+      registerType: "prompt",
+      injectRegister: false,
 
       includeAssets: [
         "favicon.ico",
@@ -54,7 +72,7 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,ico,png,webp}"],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
-        skipWaiting: true,
+        skipWaiting: false,
       },
     }),
   ],
