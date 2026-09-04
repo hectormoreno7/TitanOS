@@ -50,7 +50,22 @@ const checklistFinal = [
   "Pedales",
   "Rotores",
   "Silicon protector",
+  "Servicio de desviador",
 ];
+
+const grasasDesviador = ["Motorex 2000", "Maxima Waterproof"];
+
+const grasasBasculante = {
+  baleros: ["Motorex 2000", "Ride it Smooth", "WPL"],
+  ensambleBaleros: ["Maxima Assembly", "Ride it Smooth"],
+  puntosArticulacion: [
+    "Motorex 2000",
+    "WPL",
+    "Ride it Smooth",
+    "Maxima Assembly",
+    "Maxima Waterproof",
+  ],
+};
 
 function cargarRecoleccionesEntregas() {
   try {
@@ -74,6 +89,11 @@ function generarFolioEntrega(consecutivo) {
 
 function fechaActual() {
   return new Date().toLocaleDateString("es-MX");
+}
+
+function normalizarNumero(valor) {
+  if (typeof valor === "number") return Number.isFinite(valor) ? valor : 0;
+  return Number(String(valor || "").replace(/[$,\s]/g, "")) || 0;
 }
 
 function horaActual() {
@@ -132,6 +152,19 @@ function ServicioDetail({ servicio, onClose, onUpdate }) {
     }
   );
 
+  const [desviador, setDesviador] = useState(
+    servicio.desviador || { grasa: "", conAceite: false }
+  );
+
+  const [basculante, setBasculante] = useState(
+    servicio.basculante || {
+      aplica: false,
+      baleros: "",
+      ensambleBaleros: "",
+      puntosArticulacion: "",
+    }
+  );
+
   const [observacionesFinales, setObservacionesFinales] = useState(
     servicio.observacionesFinales || ""
   );
@@ -146,7 +179,7 @@ function ServicioDetail({ servicio, onClose, onUpdate }) {
 
   const totalServicio = useMemo(() => {
     return (formData.conceptos || []).reduce((total, item) => {
-      return total + Number(item.cantidad || 0) * Number(item.precio || 0);
+      return total + normalizarNumero(item.cantidad) * normalizarNumero(item.precio);
     }, 0);
   }, [formData.conceptos]);
 
@@ -165,6 +198,8 @@ function ServicioDetail({ servicio, onClose, onUpdate }) {
       checklist,
       grasas,
       mediciones,
+      desviador,
+      basculante,
       observacionesFinales,
       entregaDomicilio,
       fechaEntregaDomicilio,
@@ -394,6 +429,8 @@ const descargarPDF = async () => {
     checklist,
     grasas,
     mediciones,
+    desviador,
+    basculante,
     observacionesFinales,
     firmaCliente: actualizado.firmaCliente || "",
     firmaTaller: actualizado.firmaTaller || "",
@@ -831,6 +868,102 @@ const descargarPDF = async () => {
           </section>
 
           <section className="form-section">
+            <h3>Desviador</h3>
+
+            <div className="form-grid">
+              <label>
+                Grasa utilizada
+                <select
+                  value={desviador.grasa}
+                  disabled={servicioFinalizado}
+                  onChange={(event) =>
+                    setDesviador({ ...desviador, grasa: event.target.value })
+                  }
+                >
+                  <option value="">No aplica / sin registro</option>
+                  {grasasDesviador.map((grasa) => (
+                    <option key={grasa} value={grasa}>{grasa}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="check-item desviador-oil-check">
+                <input
+                  type="checkbox"
+                  checked={desviador.conAceite}
+                  disabled={servicioFinalizado}
+                  onChange={(event) =>
+                    setDesviador({ ...desviador, conAceite: event.target.checked })
+                  }
+                />
+                Con aceite
+              </label>
+            </div>
+          </section>
+
+          <section className="form-section">
+            <h3>Basculante</h3>
+
+            <label className="check-item basculante-toggle">
+              <input
+                type="checkbox"
+                checked={basculante.aplica}
+                disabled={servicioFinalizado}
+                onChange={(event) =>
+                  setBasculante({ ...basculante, aplica: event.target.checked })
+                }
+              />
+              Aplicar servicio de basculante
+            </label>
+
+            {basculante.aplica && (
+              <div className="grease-grid basculante-grid">
+                <label className="grease-item">
+                  <span>Baleros</span>
+                  <select
+                    value={basculante.baleros}
+                    disabled={servicioFinalizado}
+                    onChange={(event) =>
+                      setBasculante({ ...basculante, baleros: event.target.value })
+                    }
+                  >
+                    <option value="">No aplica / sin registro</option>
+                    {grasasBasculante.baleros.map((grasa) => <option key={grasa} value={grasa}>{grasa}</option>)}
+                  </select>
+                </label>
+
+                <label className="grease-item">
+                  <span>Ensamble de baleros</span>
+                  <select
+                    value={basculante.ensambleBaleros}
+                    disabled={servicioFinalizado}
+                    onChange={(event) =>
+                      setBasculante({ ...basculante, ensambleBaleros: event.target.value })
+                    }
+                  >
+                    <option value="">No aplica / sin registro</option>
+                    {grasasBasculante.ensambleBaleros.map((grasa) => <option key={grasa} value={grasa}>{grasa}</option>)}
+                  </select>
+                </label>
+
+                <label className="grease-item">
+                  <span>Puntos de articulación</span>
+                  <select
+                    value={basculante.puntosArticulacion}
+                    disabled={servicioFinalizado}
+                    onChange={(event) =>
+                      setBasculante({ ...basculante, puntosArticulacion: event.target.value })
+                    }
+                  >
+                    <option value="">No aplica / sin registro</option>
+                    {grasasBasculante.puntosArticulacion.map((grasa) => <option key={grasa} value={grasa}>{grasa}</option>)}
+                  </select>
+                </label>
+              </div>
+            )}
+          </section>
+
+          <section className="form-section">
             <h3>Observaciones después del mantenimiento</h3>
             <textarea
               placeholder="Observaciones finales del mecánico..."
@@ -980,6 +1113,8 @@ const descargarPDF = async () => {
       checklist={checklist}
       grasas={grasas}
       mediciones={mediciones}
+      desviador={desviador}
+      basculante={basculante}
       observacionesFinales={observacionesFinales}
       totalServicio={totalServicio}
     />
@@ -993,6 +1128,8 @@ const descargarPDF = async () => {
       checklist={checklist}
       grasas={grasas}
       mediciones={mediciones}
+      desviador={desviador}
+      basculante={basculante}
       observacionesFinales={observacionesFinales}
       totalServicio={totalServicio}
     />

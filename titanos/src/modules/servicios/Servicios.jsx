@@ -47,16 +47,18 @@ function esServicioActivo(servicio) {
 
 function totalConceptos(conceptos = []) {
   return conceptos.reduce((acc, item) => {
-    return acc + Number(item.cantidad || 0) * Number(item.precio || 0);
+    const normalizarNumero = (valor) => {
+      if (typeof valor === "number") return Number.isFinite(valor) ? valor : 0;
+      return Number(String(valor || "").replace(/[$,\s]/g, "")) || 0;
+    };
+
+    return acc + normalizarNumero(item.cantidad) * normalizarNumero(item.precio);
   }, 0);
 }
 
 function totalServicio(servicio = {}) {
-  if (Array.isArray(servicio.conceptos) && servicio.conceptos.length > 0) {
-    return totalConceptos(servicio.conceptos);
-  }
-
-  return Number(servicio.total || 0);
+  const totalConceptosRegistrados = totalConceptos(servicio.conceptos || []);
+  return totalConceptosRegistrados || Number(servicio.total || 0);
 }
 
 function uniqueByFirebaseId(items) {

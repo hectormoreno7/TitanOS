@@ -29,6 +29,7 @@ const checklistFinal = [
   "Pedales",
   "Rotores",
   "Silicon protector",
+  "Servicio de desviador",
 ];
 
 function fechaActual() {
@@ -173,6 +174,8 @@ export async function generarPDFServicio({
   checklist = {},
   grasas = {},
   mediciones = {},
+  desviador = {},
+  basculante = {},
   observacionesFinales = "",
   firmaCliente = "",
   firmaTaller = "",
@@ -573,6 +576,27 @@ await addImageContain(pdf, logoSrc, margin, y, 70, 28, {
     })),
     1
   );
+
+  if (desviador.grasa || desviador.conAceite) {
+    await sectionTitle("Desviador");
+    await keyValueGrid([
+      {
+        label: "Grasa utilizada",
+        value: `${desviador.grasa || "No aplica / sin registro"}${
+          desviador.conAceite ? " · C/A" : ""
+        }`,
+      },
+    ]);
+  }
+
+  if (basculante.aplica) {
+    await sectionTitle("Basculante");
+    await keyValueGrid([
+      { label: "Baleros", value: basculante.baleros || "No aplica / sin registro" },
+      { label: "Ensamble de baleros", value: basculante.ensambleBaleros || "No aplica / sin registro" },
+      { label: "Puntos de articulación", value: basculante.puntosArticulacion || "No aplica / sin registro" },
+    ]);
+  }
 
   await sectionTitle("Observaciones después del mantenimiento");
   await paragraph(observacionesFinales || "Sin observaciones finales registradas.");

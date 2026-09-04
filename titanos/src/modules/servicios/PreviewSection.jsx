@@ -36,6 +36,8 @@ function PreviewSection({
   checklist,
   grasas,
   mediciones,
+  desviador = {},
+  basculante = {},
   observacionesFinales,
   firmaCliente,
   firmaTaller,
@@ -78,6 +80,23 @@ function PreviewSection({
             <p><b>Peso:</b> {formData.peso || "Sin registro"}</p>
           </div>
         </section>
+
+        {(desviador.grasa || desviador.conAceite) && (
+          <section className="preview-block">
+            <h3>Desviador</h3>
+            <p><b>Grasa utilizada:</b> {desviador.grasa || "No aplica / sin registro"}</p>
+            {desviador.conAceite && <p><b>C/A</b></p>}
+          </section>
+        )}
+
+        {basculante.aplica && (
+          <section className="preview-block">
+            <h3>Basculante</h3>
+            <p><b>Baleros:</b> {basculante.baleros || "No aplica / sin registro"}</p>
+            <p><b>Ensamble de baleros:</b> {basculante.ensambleBaleros || "No aplica / sin registro"}</p>
+            <p><b>Puntos de articulación:</b> {basculante.puntosArticulacion || "No aplica / sin registro"}</p>
+          </section>
+        )}
 
         <section className="preview-block">
           <h3>Recepción</h3>

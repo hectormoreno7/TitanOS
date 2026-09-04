@@ -22,8 +22,13 @@ function getStorage(key) {
 
 function totalConceptos(conceptos = []) {
   return conceptos.reduce((acc, item) => {
-    return acc + Number(item.cantidad || 0) * Number(item.precio || 0);
+    const numero = (valor) => Number(String(valor || "").replace(/[$,\s]/g, "")) || 0;
+    return acc + numero(item.cantidad) * numero(item.precio);
   }, 0);
+}
+
+function totalServicio(servicio = {}) {
+  return totalConceptos(servicio.conceptos || []) || Number(servicio.total || 0);
 }
 
 function ClienteDetail({ cliente, onClose, onUpdate }) {
@@ -414,7 +419,7 @@ function ClienteDetail({ cliente, onClose, onUpdate }) {
                   </div>
 
                   <div className="history-actions">
-                    <strong>${Number(item.total || 0).toFixed(2)}</strong>
+                    <strong>${totalServicio(item).toFixed(2)}</strong>
                     <button onClick={() => setServicioSeleccionado(item)}>
                       Ver hoja
                     </button>

@@ -10,6 +10,16 @@ import {
 
 const CLIENTS_KEY = "titanos_clientes_v1";
 const COLLECTION = "clientes";
+const ALFABETO = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+function inicialNombre(nombre = "") {
+  return String(nombre)
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .charAt(0)
+    .toUpperCase();
+}
 
 function getLocalClientes() {
   try {
@@ -29,6 +39,7 @@ function Clientes() {
   const [clientes, setClientes] = useState([]);
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [busqueda, setBusqueda] = useState("");
+  const [letraSeleccionada, setLetraSeleccionada] = useState("");
   const [modalNuevo, setModalNuevo] = useState(false);
   const [cargando, setCargando] = useState(true);
 
@@ -108,9 +119,15 @@ function Clientes() {
         ${cliente.direccion}
       `.toLowerCase();
 
-      return texto.includes(q);
-    });
-  }, [clientes, busqueda]);
+      return texto.includes(q) && (
+        !letraSeleccionada || inicialNombre(cliente.nombre) === letraSeleccionada
+      );
+    }).sort((a, b) => String(a.nombre || "").localeCompare(
+      String(b.nombre || ""),
+      "es",
+      { sensitivity: "base" }
+    ));
+  }, [clientes, busqueda, letraSeleccionada]);
 
   const actualizarCampoNuevo = (campo, valor) => {
     setNuevoCliente((prev) => ({
@@ -240,12 +257,35 @@ function Clientes() {
         </div>
       </div>
 
-      <div className="search-box">
-        <input
-          value={busqueda}
-          placeholder="Buscar cliente, teléfono, correo o dirección..."
-          onChange={(event) => setBusqueda(event.target.value)}
-        />
+      <div className="clients-search-row">
+        <div className="search-box">
+          <input
+            value={busqueda}
+            placeholder="Buscar cliente, teléfono, correo o dirección..."
+            onChange={(event) => setBusqueda(event.target.value)}
+          />
+        </div>
+
+        <nav className="clients-alphabet" aria-label="Filtrar clientes por letra">
+          <button
+            type="button"
+            className={!letraSeleccionada ? "active" : ""}
+            onClick={() => setLetraSeleccionada("")}
+            aria-label="Mostrar todos los clientes"
+          >
+            Todos
+          </button>
+          {ALFABETO.map((letra) => (
+            <button
+              type="button"
+              key={letra}
+              className={letraSeleccionada === letra ? "active" : ""}
+              onClick={() => setLetraSeleccionada(letra)}
+            >
+              {letra}
+            </button>
+          ))}
+        </nav>
       </div>
 
       {cargando && <div className="empty-state">Cargando clientes...</div>}
