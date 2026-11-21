@@ -1,3 +1,4 @@
+import { ordenarClientes } from "../../utils/ordenarClientes";
 import { useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { crearOActualizarClienteDesdeModulo } from "../../utils/clientSync";
@@ -25,7 +26,7 @@ function horaActual() {
 }
 
 function NuevaNotaModal({ onClose, onCreate }) {
-  const clientes = useMemo(() => cargarClientes(), []);
+  const clientes = useMemo(() => ordenarClientes(cargarClientes()), []);
   const [clienteId, setClienteId] = useState("");
   const { tenantId } = useAuth();
 

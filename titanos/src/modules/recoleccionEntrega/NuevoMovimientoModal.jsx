@@ -1,3 +1,4 @@
+import { ordenarClientes } from "../../utils/ordenarClientes";
 import { useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { crearOActualizarClienteDesdeModulo } from "../../utils/clientSync";
@@ -24,7 +25,7 @@ function horaActual() {
 }
 
 function NuevoMovimientoModal({ onClose, onCreate }) {
-  const clientes = useMemo(() => cargarClientes(), []);
+  const clientes = useMemo(() => ordenarClientes(cargarClientes()), []);
   const { tenantId } = useAuth();
   const [modo, setModo] = useState("momento");
   const [tipo, setTipo] = useState("Recolección");

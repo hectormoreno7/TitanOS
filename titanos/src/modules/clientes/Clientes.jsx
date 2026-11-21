@@ -1,3 +1,4 @@
+import { compararClientesPorNombre } from "../../utils/ordenarClientes";
 import { useEffect, useMemo, useState } from "react";
 import ClienteDetail from "./ClienteDetail";
 import { useAuth } from "../../context/AuthContext";
@@ -122,11 +123,7 @@ function Clientes() {
       return texto.includes(q) && (
         !letraSeleccionada || inicialNombre(cliente.nombre) === letraSeleccionada
       );
-    }).sort((a, b) => String(a.nombre || "").localeCompare(
-      String(b.nombre || ""),
-      "es",
-      { sensitivity: "base" }
-    ));
+    }).sort(compararClientesPorNombre);
   }, [clientes, busqueda, letraSeleccionada]);
 
   const actualizarCampoNuevo = (campo, valor) => {

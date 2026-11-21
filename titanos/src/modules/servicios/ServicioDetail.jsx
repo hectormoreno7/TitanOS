@@ -24,6 +24,14 @@ const tiposGrasaGenerales = [
   "WPL",
 ];
 
+const puntosConCeramicFinishLines = new Set([
+  "Maza trasera (balines o baleros sellados)",
+  "Trinquetes",
+  "Centro / Bottom bracket",
+  "Maza delantera",
+  "Dirección",
+]);
+
 const puntosGrasa = [
   "Maza trasera (balines o baleros sellados)",
   "Trinquetes",
@@ -53,7 +61,7 @@ const checklistFinal = [
   "Servicio de desviador",
 ];
 
-const grasasDesviador = ["Motorex 2000", "Maxima Waterproof"];
+const grasasDesviador = ["Motorex 2000", "Maxima Waterproof", "Ceramic Grease Finish Lines"];
 
 const grasasBasculante = {
   baleros: ["Motorex 2000", "Ride it Smooth", "WPL"],
@@ -856,6 +864,9 @@ const descargarPDF = async () => {
                     }
                   >
                     <option value="">No aplica / sin registro</option>
+                    {puntosConCeramicFinishLines.has(punto) && (
+                      <option value="Ceramic Grease Finish Lines">Ceramic Grease Finish Lines</option>
+                    )}
                     {(tiposGrasaPorPunto[punto] || tiposGrasaGenerales).map((grasa) => (
                       <option key={grasa} value={grasa}>
                         {grasa}

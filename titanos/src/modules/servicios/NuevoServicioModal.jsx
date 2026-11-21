@@ -1,3 +1,4 @@
+import { ordenarClientes } from "../../utils/ordenarClientes";
 import { useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { crearOActualizarClienteDesdeModulo } from "../../utils/clientSync";
@@ -19,7 +20,7 @@ function crearNombreBicicleta(bike) {
 function NuevoServicioModal({ onClose, onCreate }) {
   const { tenantId } = useAuth();
 
-  const clientesIniciales = useMemo(() => cargarClientes(), []);
+  const clientesIniciales = useMemo(() => ordenarClientes(cargarClientes()), []);
   const [clientes] = useState(clientesIniciales);
 
   const [tipoCliente, setTipoCliente] = useState("existente");
