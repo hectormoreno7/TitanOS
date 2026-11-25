@@ -187,7 +187,7 @@ function SuspensionReceipt({ suspension, receiptRef }) {
         fotos={suspension.fotosDanos}
       />
 
-      <section className="sus-block">
+      <section className="sus-block maintenance-notes">
         <h3>Detalles antes del mantenimiento</h3>
         <p>{suspension.detallesAntes || "Sin observaciones."}</p>
       </section>
@@ -207,7 +207,7 @@ function SuspensionReceipt({ suspension, receiptRef }) {
         fotos={suspension.fotosEvidencia}
       />
 
-      <section className="sus-block">
+      <section className="sus-block maintenance-notes">
         <h3>Observaciones después del mantenimiento</h3>
         <p>{suspension.observacionesFinales || "Sin observaciones."}</p>
       </section>

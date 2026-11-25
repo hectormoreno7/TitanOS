@@ -44,6 +44,43 @@ function safeText(value) {
   return String(value || "Sin registro");
 }
 
+async function drawParagraph(pdf, text, {
+  margin, contentWidth, y, pageBottom, ensureSpace, border,
+}) {
+  const lineHeight = 4.5;
+  const paddingHeight = 7;
+  const textWidth = contentWidth - 6;
+  const setTextStyle = () => {
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    pdf.setTextColor(0);
+  };
+
+  setTextStyle();
+  const lines = pdf.splitTextToSize(safeText(text), textWidth);
+
+  for (let start = 0; start < lines.length;) {
+    y = await ensureSpace(lineHeight + paddingHeight);
+    const availableLines = Math.floor((pageBottom - y - paddingHeight) / lineHeight);
+    const pageLines = lines.slice(start, start + availableLines);
+    const height = pageLines.length * lineHeight + paddingHeight;
+
+    pdf.setDrawColor(...border);
+    pdf.roundedRect(margin, y, contentWidth, height, 2, 2, "S");
+    setTextStyle();
+    pdf.text(pageLines, margin + 3, y + 5, {
+      align: "justify",
+      maxWidth: textWidth,
+      lineHeightFactor: lineHeight * pdf.internal.scaleFactor / 8,
+    });
+
+    y += height + 4;
+    start += pageLines.length;
+  }
+
+  return y;
+}
+
 function cargarImagen(src) {
   return new Promise((resolve, reject) => {
     if (!src) {
@@ -253,6 +290,7 @@ await addImageContain(pdf, logoSrc, margin, y, 70, 28, {
     if (y + requiredHeight > pageHeight - margin - 8) {
       await newPage();
     }
+    return y;
   }
 
   async function sectionTitle(title) {
@@ -316,24 +354,14 @@ await addImageContain(pdf, logoSrc, margin, y, 70, 28, {
   }
 
   async function paragraph(text) {
-    await ensureSpace(14);
-
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(8);
-    pdf.setTextColor(...dark);
-
-    const lines = pdf.splitTextToSize(safeText(text), contentWidth - 6);
-    const h = lines.length * 4.5 + 7;
-
-    await ensureSpace(h);
-
-    pdf.setFillColor(255, 255, 255);
-    pdf.setDrawColor(...border);
-    pdf.roundedRect(margin, y, contentWidth, h, 2, 2, "S");
-
-    pdf.text(lines, margin + 3, y + 5);
-
-    y += h + 4;
+    y = await drawParagraph(pdf, text, {
+      margin,
+      contentWidth,
+      y,
+      pageBottom: pageHeight - margin - 8,
+      ensureSpace,
+      border,
+    });
   }
 
   async function photoGrid(title, photos = [], options = {}) {
@@ -706,6 +734,7 @@ export async function generarPDFSuspension({
     if (y + requiredHeight > pageHeight - margin - 8) {
       await newPage();
     }
+    return y;
   }
 
   async function sectionTitle(title) {
@@ -769,21 +798,14 @@ export async function generarPDFSuspension({
   }
 
   async function paragraph(text) {
-    const lines = pdf.splitTextToSize(safeText(text), contentWidth - 6);
-    const h = lines.length * 4.5 + 7;
-
-    await ensureSpace(h);
-
-    pdf.setFillColor(255, 255, 255);
-    pdf.setDrawColor(...border);
-    pdf.roundedRect(margin, y, contentWidth, h, 2, 2, "S");
-
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(8);
-    pdf.setTextColor(...dark);
-    pdf.text(lines, margin + 3, y + 5);
-
-    y += h + 4;
+    y = await drawParagraph(pdf, text, {
+      margin,
+      contentWidth,
+      y,
+      pageBottom: pageHeight - margin - 8,
+      ensureSpace,
+      border,
+    });
   }
 
   async function photoGrid(title, photos = []) {

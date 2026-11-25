@@ -1199,6 +1199,21 @@ select option {
   word-break: break-word;
 }
 
+.service-preview .maintenance-notes h3,
+.sus-receipt .maintenance-notes h3,
+.service-preview .maintenance-notes p,
+.sus-receipt .maintenance-notes p {
+  color: #000;
+  font-weight: normal;
+}
+
+.service-preview .maintenance-notes p,
+.sus-receipt .maintenance-notes p {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  text-align: justify;
+}
+
 .preview-block span,
 .preview-block strong {
   min-width: 0;

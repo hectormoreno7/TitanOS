@@ -179,7 +179,7 @@ function PreviewSection({
           </section>
         )}
 
-        <section className="preview-block">
+        <section className="preview-block maintenance-notes">
           <h3>Observaciones después del mantenimiento</h3>
           <p>{observacionesFinales || "Sin observaciones finales registradas."}</p>
         </section>
