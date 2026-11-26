@@ -113,6 +113,8 @@ function horaActual() {
 
 function ServicioDetail({ servicio, onClose, onUpdate }) {
   const previewRef = useRef(null);
+  const entregaCreadaRef = useRef("");
+  const [guardando, setGuardando] = useState(false);
 
   const [formData, setFormData] = useState({
     ...servicio,
@@ -215,17 +217,26 @@ function ServicioDetail({ servicio, onClose, onUpdate }) {
     };
   };
 
-  const guardarAvance = () => {
-    const actualizado = construirServicioActualizado();
-
-    setFormData(actualizado);
-    onUpdate(actualizado);
-    alert("Avance guardado correctamente.");
+  const persistirServicio = async (actualizado) => {
+    const guardado = await onUpdate(actualizado);
+    if (guardado) setFormData(guardado);
+    return guardado;
   };
 
-  const guardarCambiosRecepcion = () => {
-    guardarAvance();
-    setEditandoRecepcion(false);
+  const guardarAvance = async () => {
+    if (guardando) return false;
+    setGuardando(true);
+    try {
+      const guardado = await persistirServicio(construirServicioActualizado());
+      if (guardado) alert("Avance guardado correctamente.");
+      return Boolean(guardado);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const guardarCambiosRecepcion = async () => {
+    if (await guardarAvance()) setEditandoRecepcion(false);
   };
 
   const crearEntregaDomicilio = () => {
@@ -234,6 +245,8 @@ function ServicioDetail({ servicio, onClose, onUpdate }) {
     if (formData.recoleccionEntregaId) {
       return formData.recoleccionEntregaId;
     }
+
+    if (entregaCreadaRef.current) return entregaCreadaRef.current;
 
     const movimientos = cargarRecoleccionesEntregas();
 
@@ -279,34 +292,36 @@ function ServicioDetail({ servicio, onClose, onUpdate }) {
 
     guardarRecoleccionesEntregas([nuevaEntrega, ...movimientos]);
 
+    entregaCreadaRef.current = nuevaEntrega.id;
     return nuevaEntrega.id;
   };
 
-  const finalizarServicio = () => {
-    const confirmar = window.confirm(
-      "¿Finalizar este servicio? Ya no aparecerá en servicios activos y quedará en historial."
-    );
+  const guardarCierre = () => persistirServicio(construirServicioActualizado({
+    estado: "finalizado",
+    fechaEntrega: formData.fechaEntrega || fechaActual(),
+    horaEntrega: formData.horaEntrega || horaActual(),
+    recoleccionEntregaId: crearEntregaDomicilio() || formData.recoleccionEntregaId || "",
+  }));
 
-    if (!confirmar) return;
+  const finalizarServicio = async () => {
+    if (guardando || !window.confirm(
+      "?Finalizar este servicio? Ya no aparecer? en servicios activos y quedar? en historial."
+    )) return;
 
-    const entregaId = crearEntregaDomicilio();
+    setGuardando(true);
+    try {
+      if (!await guardarCierre()) return;
 
-    const actualizado = construirServicioActualizado({
-      estado: "finalizado",
-      fechaEntrega: fechaActual(),
-      recoleccionEntregaId: entregaId || formData.recoleccionEntregaId || "",
-    });
-
-    setFormData(actualizado);
-    onUpdate(actualizado);
-
-    if (entregaDomicilio) {
-      alert("Servicio finalizado y entrega a domicilio agendada.");
-    } else {
-      alert("Servicio finalizado correctamente.");
+      alert(entregaDomicilio
+        ? "Servicio finalizado y entrega a domicilio agendada."
+        : "Servicio finalizado correctamente.");
+      onClose();
+    } catch (error) {
+      console.error("Error finalizando el servicio:", error);
+      alert("No se pudo finalizar el servicio. Vuelve a intentar.");
+    } finally {
+      setGuardando(false);
     }
-
-    onClose();
   };
 
   const comprimirImagen = (archivo) => {
@@ -412,43 +427,44 @@ function ServicioDetail({ servicio, onClose, onUpdate }) {
     }));
   };
 
-const descargarPDF = async () => {
-  const confirmar = window.confirm(
-    "¿Generar PDF y finalizar este servicio? El servicio pasará al historial."
-  );
+  const descargarPDF = async () => {
+    if (guardando || (!servicioFinalizado && !window.confirm(
+      "?Generar PDF y finalizar este servicio? El servicio pasar? al historial."
+    ))) return;
 
-  if (!confirmar) return;
+    setGuardando(true);
+    let guardado = servicioFinalizado ? formData : null;
 
-  const entregaId = crearEntregaDomicilio();
+    try {
+      if (!guardado) guardado = await guardarCierre();
+      if (!guardado) return;
 
-  const actualizado = construirServicioActualizado({
-    estado: "finalizado",
-    fechaEntrega: fechaActual(),
-    horaEntrega: horaActual(),
-    recoleccionEntregaId: entregaId || formData.recoleccionEntregaId || "",
-  });
+      await generarPDFServicio({
+        formData: guardado,
+        evidencias: guardado.evidencias || [],
+        checklist: guardado.checklist || {},
+        grasas: guardado.grasas || {},
+        mediciones: guardado.mediciones || {},
+        desviador: guardado.desviador,
+        basculante: guardado.basculante,
+        observacionesFinales: guardado.observacionesFinales,
+        firmaCliente: guardado.firmaCliente || "",
+        firmaTaller: guardado.firmaTaller || "",
+        totalServicio,
+        nombreArchivo: `${guardado.folio || "servicio"}-hoja-servicio.pdf`,
+      });
 
-  setFormData(actualizado);
-  await onUpdate(actualizado);
-
-  await generarPDFServicio({
-    formData: actualizado,
-    evidencias,
-    checklist,
-    grasas,
-    mediciones,
-    desviador,
-    basculante,
-    observacionesFinales,
-    firmaCliente: actualizado.firmaCliente || "",
-    firmaTaller: actualizado.firmaTaller || "",
-    totalServicio,
-    nombreArchivo: `${actualizado.folio || "servicio"}-hoja-servicio.pdf`,
-  });
-
-  alert("PDF generado y servicio finalizado.");
-  onClose();
-};
+      alert("PDF generado y servicio finalizado.");
+      onClose();
+    } catch (error) {
+      console.error("Error preparando el PDF del servicio:", error);
+      alert(guardado
+        ? "El servicio est? guardado. No se pudo generar el PDF. Vuelve a intentar."
+        : "No se pudo finalizar el servicio. Vuelve a intentar.");
+    } finally {
+      setGuardando(false);
+    }
+  };
 
   return (
     <div className="modal-backdrop">
@@ -461,12 +477,12 @@ const descargarPDF = async () => {
             </p>
           </div>
 
-          <button className="modal-close" onClick={onClose}>
+          <button className="modal-close" onClick={onClose} disabled={guardando}>
             ×
           </button>
         </div>
 
-        <div className="service-detail-content">
+        <div className="service-detail-content" inert={guardando}>
           <section className="form-section">
             <div className="section-title-row">
               <h3>Recepción</h3>

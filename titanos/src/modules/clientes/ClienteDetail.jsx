@@ -1,10 +1,13 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ServicioDetail from "../servicios/ServicioDetail";
 import SuspensionReceipt from "../suspensiones/SuspensionReceipt";
 import MovimientoReceipt from "../recoleccionEntrega/MovimientoReceipt";
 import NotaReceipt from "../notasRapidas/NotaReceipt";
 import { generarPDFDesdeElemento } from "../servicios/pdfGenerator";
+
+import { useAuth } from "../../context/AuthContext";
+import { getTenantItems, upsertTenantItem } from "../../firebase/firestore";
 
 const SERVICES_KEY = "titanos_servicios_v3";
 const SUSPENSIONES_KEY = "titanos_suspensiones_v2";
@@ -33,18 +36,37 @@ function totalServicio(servicio = {}) {
 
 function ClienteDetail({ cliente, onClose, onUpdate }) {
   const navigate = useNavigate();
+  const { tenantId } = useAuth();
   const receiptRef = useRef(null);
 
   const [formData, setFormData] = useState(cliente);
   const [editando, setEditando] = useState(false);
 
-  const [servicios, setServicios] = useState(() => getStorage(SERVICES_KEY));
+  const [servicios, setServicios] = useState([]);
   const [suspensiones] = useState(() => getStorage(SUSPENSIONES_KEY));
   const [movimientos] = useState(() => getStorage(ER_KEY));
   const [notas] = useState(() => getStorage(NOTAS_KEY));
 
   const [servicioSeleccionado, setServicioSeleccionado] = useState(null);
   const [documentoSeleccionado, setDocumentoSeleccionado] = useState(null);
+
+  useEffect(() => {
+    let vigente = true;
+
+    getTenantItems("servicios", tenantId)
+      .then((guardados) => {
+        if (vigente) setServicios(guardados);
+      })
+      .catch((error) => {
+        if (!vigente) return;
+        console.error("Error cargando servicios del cliente:", error);
+        setServicios(getStorage(SERVICES_KEY));
+      });
+
+    return () => {
+      vigente = false;
+    };
+  }, [tenantId]);
 
   const [nuevaBicicleta, setNuevaBicicleta] = useState({
     marca: "",
@@ -159,14 +181,21 @@ function ClienteDetail({ cliente, onClose, onUpdate }) {
     navigate("/servicios");
   };
 
-  const actualizarServicioDesdeHistorial = (servicioActualizado) => {
-    const serviciosActualizados = servicios.map((servicio) =>
-      servicio.id === servicioActualizado.id ? servicioActualizado : servicio
-    );
-
-    setServicios(serviciosActualizados);
-    localStorage.setItem(SERVICES_KEY, JSON.stringify(serviciosActualizados));
-    setServicioSeleccionado(servicioActualizado);
+  const actualizarServicioDesdeHistorial = async (servicioActualizado) => {
+    try {
+      const guardado = await upsertTenantItem("servicios", servicioActualizado, tenantId);
+      setServicios((previos) => previos.map((servicio) =>
+        (servicio.firebaseId || servicio.id) === (servicioActualizado.firebaseId || servicioActualizado.id)
+          ? guardado
+          : servicio
+      ));
+      setServicioSeleccionado(guardado);
+      return guardado;
+    } catch (error) {
+      console.error("Error actualizando el servicio del cliente:", error);
+      alert("No se pudo guardar el servicio en Firebase. Vuelve a intentar.");
+      return null;
+    }
   };
 
   const descargarDocumentoPDF = async () => {

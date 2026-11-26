@@ -5,7 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import {
   getTenantItems,
   addTenantItem,
-  updateTenantItem,
+  upsertTenantItem,
 } from "../../firebase/firestore";
 
 const STORAGE_KEY = "titanos_servicios_v3";
@@ -232,37 +232,24 @@ function Servicios() {
   };
 
   const actualizarServicio = async (servicioActualizado) => {
-    let servicioFinal = servicioActualizado;
-
     try {
-      if (servicioActualizado.firebaseId) {
-        await updateTenantItem(
-          COLLECTION,
-          servicioActualizado.firebaseId,
-          servicioActualizado,
-          tenantId
-        );
-      } else {
-        const ref = await addTenantItem(COLLECTION, servicioActualizado, tenantId);
-
-        servicioFinal = {
-          ...servicioActualizado,
-          firebaseId: ref.id,
-        };
-      }
-
+      const servicioFinal = await upsertTenantItem(COLLECTION, servicioActualizado, tenantId);
       const actualizados = servicios.map((item) =>
-        String(item.firebaseId || item.id) === String(servicioFinal.firebaseId || servicioFinal.id)
+        String(item.firebaseId || item.id) === String(servicioActualizado.firebaseId || servicioActualizado.id)
           ? servicioFinal
           : item
       );
 
       setServicios(actualizados);
       guardarServiciosLocales(actualizados);
-      setServicioSeleccionado(servicioFinal);
+      setServicioSeleccionado((seleccionado) =>
+        seleccionado?.id === servicioActualizado.id ? servicioFinal : seleccionado
+      );
+      return servicioFinal;
     } catch (error) {
       console.error("Error actualizando servicio:", error);
-      alert("No se pudo actualizar el servicio en Firebase.");
+      alert("No se pudo guardar el servicio en Firebase. Vuelve a intentar.");
+      return null;
     }
   };
 
@@ -273,7 +260,7 @@ function Servicios() {
 
     if (!confirmar) return;
 
-    await actualizarServicio({
+    const guardado = await actualizarServicio({
       ...servicio,
       estado: "finalizado",
       fechaEntrega: servicio.fechaEntrega || fechaActual(),
@@ -281,28 +268,28 @@ function Servicios() {
       total: Number(servicio.total || totalConceptos(servicio.conceptos)),
     });
 
-    setVista("historial");
+    if (guardado) setVista("historial");
   };
 
   const cancelarServicio = async (servicio) => {
     const confirmar = window.confirm("¿Cancelar este servicio?");
     if (!confirmar) return;
 
-    await actualizarServicio({
+    const guardado = await actualizarServicio({
       ...servicio,
       estado: "cancelado",
       fechaCancelacion: fechaActual(),
       horaCancelacion: horaActual(),
     });
 
-    setVista("historial");
+    if (guardado) setVista("historial");
   };
 
   const reabrirServicio = async (servicio) => {
     const confirmar = window.confirm("¿Reabrir este servicio?");
     if (!confirmar) return;
 
-    await actualizarServicio({
+    const guardado = await actualizarServicio({
       ...servicio,
       estado: "activo",
       fechaEntrega: "",
@@ -312,7 +299,7 @@ function Servicios() {
       horaReapertura: horaActual(),
     });
 
-    setVista("activos");
+    if (guardado) setVista("activos");
   };
 
   const cerrarModalServicio = () => {
